@@ -24,6 +24,38 @@
 
 .speed-meter > span { display: block; height: 100%; border-radius: inherit; background: var(--teal); transition: width .35s ease; }
 
+.speed-simulator-toggle { margin-top: 12px; border: 0; background: transparent; padding: 0; color: var(--teal-dark); font-size: 10px; font-weight: 700; cursor: pointer; }
+
+.speed-simulator-control { display: grid; gap: 7px; margin-top: 8px; color: var(--ink-faint); font-size: 9px; }
+
+.speed-simulator-control > span { display: flex; justify-content: space-between; gap: 6px; }
+
+.speed-simulator-control output { color: var(--ink-soft); font-weight: 700; }
+
+.speed-simulator-control input { width: 100%; margin: 0; accent-color: var(--teal); }
+
+.speed-levels { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+
+.speed-level-button { min-width: 0; border: 1px solid var(--line); border-radius: 3px; background: var(--paper); padding: 4px 1px; color: var(--ink-soft); font-size: 8px; cursor: pointer; }
+
+.speed-level-button[aria-pressed="true"] { border-color: var(--teal); background: var(--teal-wash); color: var(--teal-dark); font-weight: 700; }
+
+.speed-risk { display: grid; gap: 3px; border-left: 3px solid #6b9b80; border-radius: 3px; background: #eef6f0; padding: 7px 8px; color: #42644c; line-height: 1.45; }
+
+.speed-risk strong { font-size: 9px; }
+
+.speed-risk span, .speed-simulator-disclaimer { font-size: 8px; }
+
+.speed-risk-moderate { border-color: #b39850; background: #f8f3e5; color: #75612e; }
+
+.speed-risk-high { border-color: #c17c3d; background: #fbefe4; color: #81502a; }
+
+.speed-risk-very-high, .speed-risk-extreme { border-color: #bc5b51; background: #fbebea; color: #813e39; }
+
+.speed-risk-stopped { border-color: #87958f; background: #f0f3f1; color: #586760; }
+
+.speed-simulator-disclaimer { color: var(--ink-faint); line-height: 1.45; }
+
 .metric-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 11px; color: var(--ink-faint); font-size: 10px; }
 
 .metric-foot strong { color: var(--ink-soft); font-weight: 600; }

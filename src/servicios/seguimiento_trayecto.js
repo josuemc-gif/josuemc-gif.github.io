@@ -24,15 +24,22 @@ export function useSeguimientoTrayecto({ anunciar, alCambiarPosicion }) {
   const [trayectoIniciado, setTrayectoIniciado] = useState(() => Boolean(trayectoGuardado?.startedAt))
   const [iniciadoEn, setIniciadoEn] = useState(() => trayectoGuardado?.startedAt || null)
   const [posicion, setPosicion] = useState(null)
-  const [velocidad, setVelocidad] = useState(0)
+  const [velocidadGps, setVelocidadGps] = useState(0)
+  const [velocidadSimulada, setVelocidadSimulada] = useState(0)
+  const [simuladorActivo, setSimuladorActivo] = useState(false)
   const [estadoGps, setEstadoGps] = useState('idle')
   const iniciadoRef = useRef(trayectoIniciado)
   const ultimaPosicionRef = useRef(null)
   const identificadorGpsRef = useRef(null)
+  const simuladorActivoRef = useRef(simuladorActivo)
 
   useEffect(() => {
     iniciadoRef.current = trayectoIniciado
   }, [trayectoIniciado])
+
+  useEffect(() => {
+    simuladorActivoRef.current = simuladorActivo
+  }, [simuladorActivo])
 
   useEffect(() => () => {
     if (identificadorGpsRef.current !== null && navigator.geolocation) {
@@ -47,6 +54,20 @@ export function useSeguimientoTrayecto({ anunciar, alCambiarPosicion }) {
     }
     localStorage.setItem('autodash-active-trip', JSON.stringify({ startedAt: iniciadoEn, distance: distancia }))
   }, [distancia, trayectoIniciado, iniciadoEn])
+
+  useEffect(() => {
+    if (!simuladorActivo || !trayectoIniciado || velocidadSimulada === 0) return undefined
+
+    let ultimaActualizacion = Date.now()
+    const temporizador = window.setInterval(() => {
+      const ahora = Date.now()
+      const milisegundosTranscurridos = ahora - ultimaActualizacion
+      ultimaActualizacion = ahora
+      setDistancia((actual) => actual + (velocidadSimulada * milisegundosTranscurridos) / 3600000)
+    }, 1000)
+
+    return () => window.clearInterval(temporizador)
+  }, [simuladorActivo, trayectoIniciado, velocidadSimulada])
 
   const iniciarGps = useCallback(() => {
     if (!window.isSecureContext) {
@@ -84,18 +105,18 @@ export function useSeguimientoTrayecto({ anunciar, alCambiarPosicion }) {
           posicionAnterior.accuracy <= 100 &&
           segmento < 1000
 
-        if (iniciadoRef.current && segmentoConfiable && segmento > umbralRuido) {
+        if (!simuladorActivoRef.current && iniciadoRef.current && segmentoConfiable && segmento > umbralRuido) {
           setDistancia((actual) => actual + segmento / 1000)
         }
 
         const velocidadInformada = resultado.coords.speed
         if (Number.isFinite(velocidadInformada) && velocidadInformada >= 0) {
-          setVelocidad(velocidadInformada * 3.6)
+          setVelocidadGps(velocidadInformada * 3.6)
         } else if (segmentoConfiable && siguientePosicion.accuracy <= 50 && posicionAnterior.accuracy <= 50) {
           const velocidadEstimada = segmento <= umbralRuido ? 0 : (segmento / segundosTranscurridos) * 3.6
-          setVelocidad(velocidadEstimada <= 200 ? velocidadEstimada : 0)
+          setVelocidadGps(velocidadEstimada <= 200 ? velocidadEstimada : 0)
         } else {
-          setVelocidad(0)
+          setVelocidadGps(0)
         }
 
         ultimaPosicionRef.current = siguientePosicion
@@ -110,6 +131,10 @@ export function useSeguimientoTrayecto({ anunciar, alCambiarPosicion }) {
     )
   }, [alCambiarPosicion])
 
+  const cambiarVelocidadSimulada = useCallback((velocidad) => {
+    setVelocidadSimulada(Math.min(120, Math.max(0, Number(velocidad) || 0)))
+  }, [])
+
   const alternarTrayecto = useCallback(() => {
     if (!trayectoIniciado) {
       setDistancia(0)
@@ -118,7 +143,7 @@ export function useSeguimientoTrayecto({ anunciar, alCambiarPosicion }) {
       setTrayectoIniciado(true)
       setIniciadoEn(Date.now())
       anunciar('Trayecto iniciado')
-      if (estadoGps !== 'active') iniciarGps()
+      if (!simuladorActivo && estadoGps !== 'active') iniciarGps()
       return
     }
 
@@ -140,12 +165,16 @@ export function useSeguimientoTrayecto({ anunciar, alCambiarPosicion }) {
     localStorage.setItem('autodash-trips', JSON.stringify(historialActualizado))
     setTrayectoIniciado(false)
     setIniciadoEn(null)
-  }, [anunciar, distancia, estadoGps, iniciadoEn, iniciarGps, trayectoIniciado, trayectos])
+  }, [anunciar, distancia, estadoGps, iniciadoEn, iniciarGps, simuladorActivo, trayectoIniciado, trayectos])
 
   return {
     posicion,
     estadoGps,
-    velocidad,
+    velocidad: simuladorActivo ? velocidadSimulada : velocidadGps,
+    velocidadSimulada,
+    simuladorActivo,
+    alternarSimulador: () => setSimuladorActivo((activo) => !activo),
+    cambiarVelocidadSimulada,
     distancia,
     trayectos,
     trayectoIniciado,

@@ -58,6 +58,10 @@
 
 .dark-mode .gps-security-notice svg { color: #e0b866; }
 
+.dark-mode .maintenance-trip-notice { border-color: #695536; background: #342c1e; color: #e0c38e; }
+
+.dark-mode .maintenance-trip-notice button { color: #e0c38e; }
+
 .dark-mode .footer-mark { background: #263a33; }
 
 .dark-mode .leaflet-tile-pane { filter: invert(.83) hue-rotate(165deg) brightness(.78) contrast(.9); }

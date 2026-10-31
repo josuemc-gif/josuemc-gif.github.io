@@ -13,10 +13,66 @@ import {
 import { BotonTrayecto } from './boton_trayecto/boton_trayecto'
 import './panel.css'
 
+const nivelesVelocidad = [0, 20, 40, 60, 80, 100, 120]
+
+function obtenerRiesgoVelocidad(velocidad) {
+  if (velocidad === 0) {
+    return {
+      nivel: 'Detenido',
+      clase: 'stopped',
+      descripcion: 'Sin movimiento. El simulador no representa la distancia necesaria para frenar.',
+    }
+  }
+  if (velocidad <= 20) {
+    return {
+      nivel: 'Baja',
+      clase: 'low',
+      descripcion: 'Aun a baja velocidad puede haber lesiones en una colisión o caída. Mantén atención a peatones y obstáculos.',
+    }
+  }
+  if (velocidad <= 40) {
+    return {
+      nivel: 'Moderada',
+      clase: 'moderate',
+      descripcion: 'Hay menos tiempo para reaccionar y más distancia para detenerse; un impacto puede causar lesiones.',
+    }
+  }
+  if (velocidad <= 60) {
+    return {
+      nivel: 'Alta',
+      clase: 'high',
+      descripcion: 'Aumentan la distancia de frenado y la gravedad potencial de una colisión.',
+    }
+  }
+  if (velocidad <= 80) {
+    return {
+      nivel: 'Muy alta',
+      clase: 'very-high',
+      descripcion: 'Queda menos margen para evitar peligros y crece el riesgo de lesiones graves.',
+    }
+  }
+  if (velocidad <= 100) {
+    return {
+      nivel: 'Extrema',
+      clase: 'extreme',
+      descripcion: 'Una pérdida de control o colisión puede tener consecuencias muy graves o mortales.',
+    }
+  }
+  return {
+    nivel: 'Extrema',
+    clase: 'extreme',
+    descripcion: 'Riesgo extremo de perder el control y sufrir lesiones muy graves o mortales. No superes los límites aplicables.',
+  }
+}
+
 export function SeccionPanel({
   greeting,
   tripStarted,
   speed,
+  speedSimulatorActive,
+  simulatedSpeed,
+  toggleSpeedSimulator,
+  changeSimulatedSpeed,
   gpsStatus,
   phoneBattery,
   batteryAvailability,
@@ -29,6 +85,8 @@ export function SeccionPanel({
   startGps,
   setView,
 }) {
+  const riesgoVelocidad = obtenerRiesgoVelocidad(simulatedSpeed)
+
   return (
     <>
       <section className="page-heading">
@@ -47,9 +105,49 @@ export function SeccionPanel({
           <div className="speed-display"><strong>{Math.round(speed)}</strong><span>km/h</span></div>
           <div className="speed-meter"><span style={{ width: `${Math.min(speed / 1.2, 100)}%` }} /></div>
           <div className="metric-foot">
-            <span><i className={`signal-dot${gpsStatus === 'active' ? '' : ' inactive'}`} /> {gpsStatus === 'active' ? 'GPS en tiempo real' : 'GPS sin conexión'}</span>
+            <span><i className={`signal-dot${gpsStatus === 'active' || speedSimulatorActive ? '' : ' inactive'}`} /> {speedSimulatorActive ? 'Simulador activo' : gpsStatus === 'active' ? 'GPS en tiempo real' : 'GPS sin conexión'}</span>
             <span>máx. 120 km/h</span>
           </div>
+          <button
+            type="button"
+            className="speed-simulator-toggle"
+            aria-pressed={speedSimulatorActive}
+            onClick={toggleSpeedSimulator}
+          >
+            {speedSimulatorActive ? 'Desactivar simulador' : 'Simular velocidad'}
+          </button>
+          {speedSimulatorActive && (
+            <label className="speed-simulator-control">
+              <span>Velocidad simulada <output>{simulatedSpeed} km/h</output></span>
+              <div className="speed-levels" role="group" aria-label="Niveles de velocidad">
+                {nivelesVelocidad.map((nivel) => (
+                  <button
+                    type="button"
+                    key={nivel}
+                    className="speed-level-button"
+                    aria-pressed={simulatedSpeed === nivel}
+                    onClick={() => changeSimulatedSpeed(nivel)}
+                  >
+                    {nivel}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="120"
+                step="1"
+                value={simulatedSpeed}
+                aria-label="Velocidad simulada en kilómetros por hora"
+                onChange={(event) => changeSimulatedSpeed(event.target.value)}
+              />
+              <div className={`speed-risk speed-risk-${riesgoVelocidad.clase}`} role="status" aria-live="polite">
+                <strong>Riesgo orientativo: {riesgoVelocidad.nivel}</strong>
+                <span>{riesgoVelocidad.descripcion}</span>
+              </div>
+              <small className="speed-simulator-disclaimer">Simulación educativa: no controla el vehículo ni define una velocidad segura. El riesgo real depende del vehículo, la vía y las condiciones.</small>
+            </label>
+          )}
         </article>
 
         <article className="metric-card">

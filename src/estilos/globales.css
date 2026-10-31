@@ -70,6 +70,10 @@ h1 > span { color: var(--teal); }
 
 .trip-button, .secondary-button, .subtle-button { display: inline-flex; min-height: 36px; flex: 0 0 auto; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--teal); border-radius: 5px; background: var(--teal); padding: 0 12px; color: white; font-size: 11px; font-weight: 700; cursor: pointer; transition: background .18s ease, transform .18s ease; }
 
+.maintenance-trip-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 15px; border: 1px solid #ead7b8; border-radius: 5px; background: #fff8ed; padding: 11px 12px; color: #765c37; font-size: 11px; line-height: 1.5; }
+
+.maintenance-trip-notice button { flex: 0 0 auto; border: 0; background: transparent; padding: 0; color: #765c37; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+
 .secondary-button { border-color: #dbe4e1; background: white; color: #49615e; }
 
 .secondary-button:hover, .subtle-button:hover { background: #f4f8f7; }

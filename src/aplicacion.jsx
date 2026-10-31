@@ -9,6 +9,7 @@ import { SeccionTrayectos } from './componentes/trayectos/seccion_trayectos'
 import { SeccionMantenimiento } from './componentes/mantenimiento/seccion_mantenimiento'
 import { SeccionMultimedia } from './componentes/multimedia/seccion_multimedia'
 import { SeccionConfiguracion } from './componentes/configuracion/seccion_configuracion'
+import { PanelBloqueoMovimiento } from './componentes/seguridad/panel_bloqueo_movimiento'
 import { useSeguimientoTrayecto } from './servicios/seguimiento_trayecto'
 import { consultarClima } from './servicios/clima'
 import { useBateriaTelefono } from './servicios/bateria_telefono'
@@ -29,9 +30,11 @@ const navigation = [
 
 function Aplicacion() {
   const [view, setView] = useState('dashboard')
+  const [videoBlocked, setVideoBlocked] = useState(true)
   const { bateria: phoneBattery, disponibilidad: batteryAvailability } = useBateriaTelefono()
   const [weather, setWeather] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [tripWarning, setTripWarning] = useState(false)
   const [clock, setClock] = useState(() => new Date())
   const {
     dispositivo: device,
@@ -61,9 +64,28 @@ function Aplicacion() {
     distancia: distance,
     trayectos: trips,
     trayectoIniciado: tripStarted,
+    velocidadSimulada,
+    simuladorActivo,
+    alternarSimulador,
+    cambiarVelocidadSimulada,
     iniciarGps: startGps,
     alternarTrayecto: toggleTrip,
   } = useSeguimientoTrayecto({ anunciar: speak, alCambiarPosicion: busqueda.actualizarPosicion })
+  const toggleTripWithMaintenanceCheck = useCallback(() => {
+    if (!tripStarted && tasks.some((task) => task.status !== 'Completado')) {
+      setTripWarning(true)
+      return
+    }
+
+    setTripWarning(false)
+    toggleTrip()
+  }, [tasks, toggleTrip, tripStarted])
+  const updateMaintenanceTask = useCallback((taskId, status) => {
+    moveTask(taskId, status)
+    if (tasks.every((task) => task.id === taskId ? status === 'Completado' : task.status === 'Completado')) {
+      setTripWarning(false)
+    }
+  }, [moveTask, tasks])
   const weatherLatitude = position ? Number(position.lat.toFixed(2)) : null
   const weatherLongitude = position ? Number(position.lng.toFixed(2)) : null
 
@@ -108,11 +130,22 @@ function Aplicacion() {
             </div>
           )}
 
+          {tripWarning && (
+            <div className="maintenance-trip-notice" role="alert">
+              <span>Termina la revisión de tareas de mantenimiento antes de iniciar el trayecto.</span>
+              <button type="button" onClick={() => setView('maintenance')}>Ir a mantenimiento</button>
+            </div>
+          )}
+
           {view === 'dashboard' && (
             <SeccionPanel
               greeting={saludoPorHora(clock)}
               tripStarted={tripStarted}
               speed={speed}
+              speedSimulatorActive={simuladorActivo}
+              simulatedSpeed={velocidadSimulada}
+              toggleSpeedSimulator={alternarSimulador}
+              changeSimulatedSpeed={cambiarVelocidadSimulada}
               gpsStatus={gpsStatus}
               phoneBattery={phoneBattery}
               batteryAvailability={batteryAvailability}
@@ -121,7 +154,7 @@ function Aplicacion() {
               weather={weather}
               weatherStatus={weatherStatus}
               position={position}
-              alternarTrayecto={toggleTrip}
+              alternarTrayecto={toggleTripWithMaintenanceCheck}
               startGps={startGps}
               setView={setView}
             />
@@ -146,9 +179,9 @@ function Aplicacion() {
             />
           )}
 
-          {view === 'history' && <SeccionTrayectos trips={trips} tripStarted={tripStarted} toggleTrip={toggleTrip} startGps={startGps} setView={setView} />}
-          {view === 'maintenance' && <SeccionMantenimiento tasks={tasks} moveTask={moveTask} />}
-          {view === 'media' && <SeccionMultimedia />}
+          {view === 'history' && <SeccionTrayectos trips={trips} tripStarted={tripStarted} toggleTrip={toggleTripWithMaintenanceCheck} startGps={startGps} setView={setView} />}
+          {view === 'maintenance' && <SeccionMantenimiento tasks={tasks} moveTask={updateMaintenanceTask} />}
+          {view === 'media' && <SeccionMultimedia isVideoPlayerLocked={videoBlocked} />}
           {view === 'settings' && (
             <SeccionConfiguracion
               device={device}
@@ -165,6 +198,7 @@ function Aplicacion() {
           )}
         </div>
       </main>
+      <PanelBloqueoMovimiento onBloqueoChange={setVideoBlocked} />
     </div>
   )
 }

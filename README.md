@@ -24,7 +24,7 @@ El servidor local usa siempre `http://localhost:5173`. Si ese puerto está ocupa
 
 ## Datos y conexiones
 
-- La velocidad y la distancia del trayecto usan la geolocalización del navegador. El usuario debe conceder permiso; para tablets y teléfonos el sitio publicado necesita HTTPS.
+- La velocidad y la distancia del trayecto usan la geolocalización del navegador. El usuario debe conceder permiso; para tablets y teléfonos el sitio publicado necesita HTTPS. El panel incluye un simulador educativo con niveles de velocidad y una indicación orientativa de sus riesgos; no controla el vehículo ni establece velocidades seguras. Para iniciar trayectos, todas las tareas de mantenimiento deben estar completadas.
 - El clima y la probabilidad de lluvia vienen de Open-Meteo según la ubicación aproximada del dispositivo.
 - El mapa usa OpenStreetMap, Nominatim y OSRM. El cálculo de ruta requiere GPS y conexión a Internet.
 - El nivel de batería, la autonomía y el consumo no se simulan: requieren sensores instalados y un protocolo compatible con el vehículo. El módulo Bluetooth todavía no implementa un protocolo del carrito.
