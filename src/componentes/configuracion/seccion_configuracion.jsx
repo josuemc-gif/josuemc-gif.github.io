@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { BatteryCharging, Bell, Bluetooth, Check, Compass, Contrast, Eye, Gauge, Languages, Monitor, Moon, Settings2, ShieldCheck, Sun, Volume2, Wifi } from 'lucide-react'
-import { consumoDesdeKwh100Km, distanciaDesdeKm, temperaturaDesdeC } from '../../utilidades/unidades'
+import { Bell, Bluetooth, Check, Compass, Contrast, Eye, Gauge, Languages, Monitor, Moon, Settings2, ShieldCheck, Sun, Volume2, Wifi } from 'lucide-react'
+import { consumoDesdeKwh100Km } from '../../utilidades/unidades'
 import './configuracion.css'
 
 export function SeccionConfiguracion({
@@ -173,24 +173,15 @@ export function SeccionConfiguracion({
       </article>}
 
       <article className="panel settings-section telemetry-demo-settings">
-        <div className="section-title"><div><span className="section-kicker">SIMULADOR LOCAL</span><h2>Datos eléctricos de demostración</h2></div><span className="title-icon"><BatteryCharging size={18} /></span></div>
-        <p className="settings-description">Los cambios se guardan en este dispositivo y no representan mediciones del vehículo.</p>
+        <div className="section-title"><div><span className="section-kicker">SIMULACIÓN DE TRAYECTO</span><h2>Consumo de referencia</h2></div><span className="title-icon"><Gauge size={18} /></span></div>
+        <p className="settings-description">Solo se usa para la estimación del historial de trayectos. La batería, autonomía y temperatura no se inventan: requieren datos reales del vehículo.</p>
         <div className="telemetry-demo-grid">
           {[
-            { key: 'battery', label: 'Carga de tracción', min: 0, max: 100, step: 1, unit: '%' },
-            { key: 'range', label: 'Autonomía estimada', min: 0, max: units === 'imperial' ? 621 : 1000, step: 1, unit: units === 'imperial' ? 'mi' : 'km' },
-            { key: 'temperature', label: 'Temperatura', min: units === 'imperial' ? -40 : -40, max: units === 'imperial' ? 212 : 100, step: 1, unit: units === 'imperial' ? '°F' : '°C' },
-            { key: 'consumption', label: 'Consumo', min: 0, max: units === 'imperial' ? 161 : 100, step: 0.1, unit: `kWh/100 ${units === 'imperial' ? 'mi' : 'km'}` },
+            { key: 'consumption', label: 'Consumo de referencia (simulado)', min: 0, max: units === 'imperial' ? 161 : 100, step: 0.1, unit: `kWh/100 ${units === 'imperial' ? 'mi' : 'km'}` },
           ].map(({ key, label, min, max, step, unit }) => (
-            <label key={key}><span>{label} <strong>{(key === 'range' ? distanciaDesdeKm(telemetry[key], units).value : key === 'temperature' ? temperaturaDesdeC(telemetry[key], units) : key === 'consumption' ? consumoDesdeKwh100Km(telemetry[key], units) : telemetry[key]).toFixed(key === 'consumption' ? 1 : 0)} {unit}</strong></span><input type="range" min={min} max={max} step={step} value={key === 'range' ? distanciaDesdeKm(telemetry[key], units).value : key === 'temperature' ? temperaturaDesdeC(telemetry[key], units) : key === 'consumption' ? consumoDesdeKwh100Km(telemetry[key], units) : telemetry[key]} onChange={(event) => {
+            <label key={key}><span>{label} <strong>{consumoDesdeKwh100Km(telemetry[key], units).toFixed(1)} {unit}</strong></span><input type="range" min={min} max={max} step={step} value={consumoDesdeKwh100Km(telemetry[key], units)} onChange={(event) => {
               const value = Number(event.target.value)
-              const baseValue = key === 'range' && units === 'imperial'
-                ? value / 0.621371
-                : key === 'temperature' && units === 'imperial'
-                  ? ((value - 32) * 5) / 9
-                  : key === 'consumption' && units === 'imperial'
-                    ? value / 1.609344
-                    : value
+              const baseValue = units === 'imperial' ? value / 1.609344 : value
               updateTelemetry(key, baseValue)
             }} /></label>
           ))}

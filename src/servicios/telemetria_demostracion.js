@@ -1,25 +1,15 @@
 import { useEffect, useState } from 'react'
 
 const clave = 'autodash-demo-telemetry'
-const valoresIniciales = {
-  battery: 85,
-  range: 320,
-  temperature: 27,
-  consumption: 14.6,
-}
+const consumoInicial = 14.6
 
 function readTelemetry() {
   try {
     const stored = JSON.parse(localStorage.getItem(clave))
-    if (!stored || typeof stored !== 'object') return valoresIniciales
-    return {
-      battery: clamp(stored.battery, 0, 100, valoresIniciales.battery),
-      range: clamp(stored.range, 0, 1000, valoresIniciales.range),
-      temperature: clamp(stored.temperature, -40, 100, valoresIniciales.temperature),
-      consumption: clamp(stored.consumption, 0, 100, valoresIniciales.consumption),
-    }
+    if (!stored || typeof stored !== 'object') return { consumption: consumoInicial }
+    return { consumption: clamp(stored.consumption, 0, 100, consumoInicial) }
   } catch {
-    return valoresIniciales
+    return { consumption: consumoInicial }
   }
 }
 

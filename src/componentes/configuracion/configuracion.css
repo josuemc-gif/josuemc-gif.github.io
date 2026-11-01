@@ -24,7 +24,7 @@
 
 .telemetry-demo-settings { grid-column: 1 / -1; }
 
-.telemetry-demo-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.telemetry-demo-grid { display: grid; grid-template-columns: minmax(240px, 1fr); gap: 12px; margin-top: 14px; }
 
 .telemetry-demo-grid label { display: grid; min-width: 0; gap: 8px; color: var(--ink-soft); font-size: 9px; }
 

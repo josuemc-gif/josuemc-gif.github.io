@@ -80,11 +80,15 @@ export function SeccionPanel({
   toggleSpeedSimulator,
   changeSimulatedSpeed,
   gpsStatus,
-  telemetry,
+  phoneBattery,
+  batteryAvailability,
+  distance = 0,
+  tripCount = 0,
   units = 'metric',
   privacy = false,
   weather,
   weatherStatus,
+  weatherLoading = false,
   position,
   setMediaSection,
   alternarTrayecto,
@@ -93,7 +97,10 @@ export function SeccionPanel({
 }) {
   const riesgoVelocidad = obtenerRiesgoVelocidad(simulatedSpeed)
   const displayedSpeed = velocidadDesdeKmh(speed, units)
-  const displayedRange = distanciaDesdeKm(telemetry.range, units)
+  const displayedDistance = distanciaDesdeKm(distance, units)
+  const currentTemperature = weather
+    ? Math.round(temperaturaDesdeC(weather.temperature_2m, units))
+    : null
 
   return (
     <>
@@ -159,25 +166,25 @@ export function SeccionPanel({
         </article>
 
         <article className="metric-card vehicle-metric">
-          <div className="metric-top"><span className="metric-label">BATERÍA DE TRACCIÓN</span><span className="metric-icon battery-color"><BatteryCharging size={18} /></span></div>
-          <div className="metric-unavailable">{telemetry.battery}<small>%</small></div>
-          <div className="battery-track demo-battery-track"><span style={{ width: `${telemetry.battery}%` }} /></div>
-          <div className="metric-foot"><span>Nivel de carga</span><strong>Simulado</strong></div>
-          <div className="metric-note">Dato de demostración, no telemetría real</div>
+          <div className="metric-top"><span className="metric-label">BATERÍA DEL DISPOSITIVO</span><span className="metric-icon battery-color"><BatteryCharging size={18} /></span></div>
+          <div className="battery-row">
+            <strong>{phoneBattery ? Math.round(phoneBattery.level * 100) : '--'}<small>%</small></strong>
+            <span className="source-tag">{batteryAvailability === 'available' ? 'DISPOSITIVO' : batteryAvailability === 'unsupported' ? 'NO DISPONIBLE' : batteryAvailability === 'unavailable' ? 'SIN LECTURA' : 'LEYENDO…'}</span>
+          </div>
+          <div className="battery-track"><span style={{ width: `${phoneBattery ? Math.round(phoneBattery.level * 100) : 0}%` }} /></div>
+          <div className="metric-foot"><span>Estado de carga</span><strong>{phoneBattery ? (phoneBattery.charging ? 'Cargando' : 'En uso') : '--'}</strong></div>
         </article>
 
         <article className="metric-card vehicle-metric">
-          <div className="metric-top"><span className="metric-label">AUTONOMÍA ESTIMADA</span><span className="metric-icon distance-color"><Route size={18} /></span></div>
-          <div className="metric-unavailable">{Math.round(displayedRange.value)}<small>{displayedRange.unit}</small></div>
-          <div className="metric-foot"><span>Distancia restante</span><strong>Simulada</strong></div>
-          <div className="metric-note">Estimación de demostración</div>
+          <div className="metric-top"><span className="metric-label">DISTANCIA DEL TRAYECTO</span><span className="metric-icon distance-color"><Route size={18} /></span></div>
+          <div className="distance-display"><strong>{displayedDistance.value.toFixed(2)}</strong><span>{displayedDistance.unit}</span></div>
+          <div className="metric-foot"><span>{tripStarted ? 'Trayecto en curso' : 'Distancia registrada por GPS'}</span><strong>{tripCount} guardados</strong></div>
         </article>
 
         <article className="metric-card vehicle-metric">
-          <div className="metric-top"><span className="metric-label">TEMPERATURA</span><span className="metric-icon"><Thermometer size={18} /></span></div>
-          <div className="metric-unavailable">{Math.round(temperaturaDesdeC(telemetry.temperature, units))}<small>°{units === 'imperial' ? 'F' : 'C'}</small></div>
-          <div className="metric-foot"><span>Sistema eléctrico</span><strong>Simulado</strong></div>
-          <div className="metric-note">Dato de demostración, no telemetría real</div>
+          <div className="metric-top"><span className="metric-label">TEMPERATURA LOCAL</span><span className="metric-icon"><Thermometer size={18} /></span></div>
+          <div className="metric-unavailable">{currentTemperature ?? '—'}{currentTemperature !== null && <small>°{units === 'imperial' ? 'F' : 'C'}</small>}</div>
+          <div className="metric-foot"><span>Clima según ubicación GPS</span><strong>{weatherLoading ? 'Actualizando' : weather ? 'Actual' : 'Sin dato'}</strong></div>
         </article>
       </section>
 
@@ -217,7 +224,7 @@ export function SeccionPanel({
             <div><span className="section-kicker">CONDICIONES LOCALES</span><h2>Clima en ruta</h2></div>
             <span className="title-icon weather-title-icon"><CloudSun size={19} /></span>
           </div>
-          <div className="weather-status">{weatherStatus}</div>
+          <div className="weather-status" role="status">{weatherStatus}</div>
           <div className="weather-main">
             <div className="weather-symbol"><Sun size={32} strokeWidth={1.5} /></div>
             <div className="temperature">{weather ? `${Math.round(temperaturaDesdeC(weather.temperature_2m, units))}°` : '--°'}<span>{weather ? (units === 'imperial' ? '°F actual' : '°C actual') : 'Sin ubicación'}</span></div>

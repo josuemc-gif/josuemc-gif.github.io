@@ -12,6 +12,7 @@ import { SeccionConfiguracion } from './componentes/configuracion/seccion_config
 import { PanelBloqueoMovimiento } from './componentes/seguridad/panel_bloqueo_movimiento'
 import { useSeguimientoTrayecto } from './servicios/seguimiento_trayecto'
 import { consultarClima } from './servicios/clima'
+import { useBateriaTelefono } from './servicios/bateria_telefono'
 import { useBuscadorDestinos } from './servicios/buscador_destinos'
 import { usePreferencias } from './servicios/preferencias'
 import { useTareasMantenimiento } from './servicios/tareas_mantenimiento'
@@ -55,6 +56,7 @@ function PanelAutoDash({ auth }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [tripWarning, setTripWarning] = useState(false)
   const [clock, setClock] = useState(() => new Date())
+  const { bateria: phoneBattery, disponibilidad: batteryAvailability } = useBateriaTelefono()
   const setView = useCallback((nextView) => {
     if (nextView !== 'media') setVideoBlocked(true)
     setViewState(nextView)
@@ -101,6 +103,7 @@ function PanelAutoDash({ auth }) {
     posicion: position,
     estadoGps: gpsStatus,
     velocidad: speed,
+    distancia,
     trayectos: trips,
     eliminarTrayecto: deleteTrip,
     trayectoIniciado: tripStarted,
@@ -158,18 +161,42 @@ function PanelAutoDash({ auth }) {
   }, [])
 
   useEffect(() => {
-    if (weatherLatitude === null || weatherLongitude === null) return
+    if (gpsStatus !== 'active' || weatherLatitude === null || weatherLongitude === null) return undefined
+
+    let active = true
     consultarClima(weatherLatitude, weatherLongitude)
-      .then(setWeather)
-      .catch(() => setWeather(null))
-  }, [weatherLatitude, weatherLongitude])
+      .then((result) => {
+        if (active) setWeather({ latitude: weatherLatitude, longitude: weatherLongitude, data: result })
+      })
+      .catch(() => {
+        if (active) setWeather({ latitude: weatherLatitude, longitude: weatherLongitude, data: null })
+      })
+
+    return () => {
+      active = false
+    }
+  }, [gpsStatus, weatherLatitude, weatherLongitude])
 
   const announceRoute = useCallback((summary) => {
     speak(`Ruta calculada a ${summary.name}. ${summary.distanceLabel || `${summary.distance} kilómetros`}, aproximadamente ${summary.duration} minutos`)
   }, [speak])
 
   const statusText = { idle: 'GPS desconectado', searching: 'Buscando señal GPS…', active: 'GPS conectado', denied: 'Permiso de ubicación denegado', error: 'No se pudo obtener la ubicación', unsupported: 'GPS no compatible con este navegador', insecure: 'GPS requiere HTTPS' }[gpsStatus]
-  const weatherStatus = weather ? 'Actualizado con tu ubicación' : 'Activa el GPS para consultar el clima local'
+  const weatherMatchesLocation = weather?.latitude === weatherLatitude
+    && weather?.longitude === weatherLongitude
+  const currentWeather = weatherMatchesLocation ? weather.data : null
+  const weatherLoading = gpsStatus === 'active'
+    && weatherLatitude !== null
+    && weatherLongitude !== null
+    && !weatherMatchesLocation
+  const weatherError = weatherMatchesLocation && !weather.data
+  const weatherStatus = weatherLoading
+    ? 'Actualizando con la ubicación GPS…'
+    : currentWeather
+      ? gpsStatus === 'active' ? 'Clima local según GPS' : 'Última ubicación GPS'
+      : weatherError
+        ? 'No se pudo consultar el clima local'
+        : 'Activa el GPS para consultar el clima local'
 
   return (
     <div className={`app-shell device-${device}${highContrast ? ' high-contrast' : ''}${darkMode ? ' dark-mode' : ''}${largeText ? ' large-text' : ''}${menuOpen ? ' menu-open' : ''}`}>
@@ -205,11 +232,15 @@ function PanelAutoDash({ auth }) {
               toggleSpeedSimulator={alternarSimulador}
               changeSimulatedSpeed={cambiarVelocidadSimulada}
               gpsStatus={gpsStatus}
-              telemetry={telemetry}
+              phoneBattery={phoneBattery}
+              batteryAvailability={batteryAvailability}
+              distance={distancia}
+              tripCount={trips.length}
               units={unidades}
               privacy={privacidad}
-              weather={weather}
+              weather={currentWeather}
               weatherStatus={weatherStatus}
+              weatherLoading={weatherLoading}
               position={position}
               setMediaSection={setMediaSection}
               alternarTrayecto={toggleTripWithMaintenanceCheck}
