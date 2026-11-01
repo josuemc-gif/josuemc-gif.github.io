@@ -4,9 +4,23 @@ import {
   crearControlMovimiento,
   emitirVelocidad,
   obtenerVelocidad,
+  UMBRAL_VELOCIDAD_KMH,
 } from './bloqueo_movimiento.js'
 
 describe('crearControlMovimiento', () => {
+  it('bloquea la reproducción al alcanzar 10 km/h', async () => {
+    const cambios = []
+    const control = crearControlMovimiento((bloqueado) => cambios.push(bloqueado), { espera: 5 })
+
+    control.actualizarVelocidad({ velocidad: 9.9 })
+    await new Promise((resolve) => setTimeout(resolve, 15))
+    assert.deepEqual(cambios, [false])
+
+    control.actualizarVelocidad({ velocidad: UMBRAL_VELOCIDAD_KMH })
+    assert.deepEqual(cambios, [false, true])
+    control.destruir()
+  })
+
   it('bloquea al alcanzar el umbral y solo desbloquea tras la espera bajo el umbral', async () => {
     const cambios = []
     const control = crearControlMovimiento((bloqueado) => cambios.push(bloqueado), {

@@ -1,3 +1,9 @@
-.trip-button:hover { transform: translateY(-1px); background: var(--teal-dark); }
+.trip-button:hover:not(:disabled) { transform: translateY(-1px); background: var(--teal-dark); }
+
+.trip-button:active:not(:disabled) { transform: translateY(0) scale(.98); }
+
+.trip-button:disabled { border-color: var(--line); background: var(--line); color: var(--ink-faint); cursor: not-allowed; }
 
 .trip-button.trip-active { border-color: #c7705d; background: #c7705d; }
+
+.trip-button.trip-active:disabled { border-color: var(--line); background: var(--line); color: var(--ink-faint); }

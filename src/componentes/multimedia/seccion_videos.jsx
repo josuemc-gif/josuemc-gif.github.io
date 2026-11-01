@@ -14,6 +14,7 @@ const videoPlayerStyles = `
   .media-panel-heading p { margin-top: 4px; color: var(--ink-faint); font-size: 11px; line-height: 1.5; }
   .youtube-search-form { display: flex; gap: 8px; }
   .youtube-search-input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface, white); padding: 0 12px; color: var(--ink); font: inherit; font-size: 13px; }
+  .youtube-category-select { min-width: 150px; min-height: 44px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface, white); padding: 0 10px; color: var(--ink); font: inherit; font-size: 12px; }
   .youtube-search-button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 5px; background: var(--teal); padding: 0 15px; color: white; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
   .youtube-search-button:disabled, .youtube-result:disabled, .youtube-retry-button:disabled { cursor: not-allowed; opacity: .55; }
   .youtube-key-notice, .youtube-status, .youtube-error, .media-lock { margin: 10px 0 0; border-radius: 5px; padding: 10px 12px; font-size: 11px; line-height: 1.5; }
@@ -21,12 +22,20 @@ const videoPlayerStyles = `
   .youtube-status { color: var(--ink-faint); }
   .youtube-error { background: #fff0ef; color: #8d3932; }
   .youtube-results { display: grid; gap: 8px; margin-top: 12px; }
+  .youtube-results-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 15px; }
+  .youtube-results-heading strong { color: var(--ink); font-size: 12px; }
+  .youtube-results-heading small { color: var(--ink-faint); font-size: 10px; }
   .youtube-result { display: flex; width: 100%; min-width: 0; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 5px; background: transparent; padding: 8px; text-align: left; cursor: pointer; }
   .youtube-result:hover:not(:disabled), .youtube-result.selected { border-color: var(--teal); background: var(--surface, white); }
-  .youtube-thumbnail { width: 120px; aspect-ratio: 16 / 9; flex: 0 0 auto; border-radius: 3px; background: #e9efec; object-fit: cover; }
+  .youtube-thumbnail-wrap { position: relative; width: 120px; aspect-ratio: 16 / 9; flex: 0 0 auto; overflow: hidden; border-radius: 3px; background: #e9efec; }
+  .youtube-thumbnail { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .youtube-duration { position: absolute; right: 4px; bottom: 4px; border-radius: 3px; background: rgb(0 0 0 / 82%); padding: 2px 4px; color: white; font-size: 9px; font-variant-numeric: tabular-nums; }
   .youtube-result-copy { display: grid; min-width: 0; gap: 5px; }
   .youtube-result-copy strong { overflow: hidden; color: var(--ink); font-size: 12px; line-height: 1.4; text-overflow: ellipsis; }
   .youtube-result-copy small { overflow: hidden; color: var(--ink-faint); font-size: 10px; text-overflow: ellipsis; }
+  .youtube-recent { display: grid; gap: 7px; margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .youtube-recent .youtube-result { padding: 6px; }
+  .youtube-recent .youtube-thumbnail-wrap { width: 90px; }
   .youtube-player-frame { position: relative; display: grid; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; place-items: center; border-radius: 5px; background: #111817; }
   .youtube-player-frame > div { width: 100%; height: 100%; }
   .youtube-player-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
@@ -41,7 +50,8 @@ const videoPlayerStyles = `
     .media-panel { padding: 12px; }
     .youtube-search-form { align-items: stretch; flex-direction: column; }
     .youtube-search-button { width: 100%; }
-    .youtube-thumbnail { width: 96px; }
+    .youtube-category-select { width: 100%; }
+    .youtube-thumbnail-wrap { width: 96px; }
   }
 `
 
@@ -132,12 +142,35 @@ function getYouTubeSearchErrorMessage(data, status) {
   return data.error?.message || `La búsqueda falló (HTTP ${status}).`
 }
 
+function formatVideoDuration(isoDuration) {
+  const parts = isoDuration?.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/)
+  if (!parts) return '--:--'
+
+  const hours = Number(parts[1] || 0)
+  const minutes = Number(parts[2] || 0)
+  const seconds = Number(parts[3] || 0)
+  if (hours) return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
+function readRecentVideos() {
+  try {
+    const savedVideos = JSON.parse(localStorage.getItem('autodash-recent-videos'))
+    return Array.isArray(savedVideos) ? savedVideos : []
+  } catch {
+    return []
+  }
+}
+
 export function SeccionVideos({ isVideoPlayerLocked = false }) {
   const [searchQuery, setSearchQuery] = useState('')
+  const [videoCategory, setVideoCategory] = useState('')
   const [searchRevision, setSearchRevision] = useState(0)
   const [searchResults, setSearchResults] = useState([])
+  const [recentVideos, setRecentVideos] = useState(readRecentVideos)
   const [searchStatus, setSearchStatus] = useState('idle')
   const [searchError, setSearchError] = useState('')
+  const [durationWarning, setDurationWarning] = useState('')
   const [selectedYouTubeVideo, setSelectedYouTubeVideo] = useState(null)
   const [youTubePlayerError, setYouTubePlayerError] = useState('')
   const [youTubePlayerReady, setYouTubePlayerReady] = useState(false)
@@ -147,6 +180,10 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
   const youtubePlayerHostRef = useRef(null)
   const youtubePlayerRef = useRef(null)
   const securityLockRef = useRef(isVideoPlayerLocked)
+
+  useEffect(() => {
+    localStorage.setItem('autodash-recent-videos', JSON.stringify(recentVideos))
+  }, [recentVideos])
 
   useEffect(() => {
     securityLockRef.current = isVideoPlayerLocked
@@ -172,6 +209,7 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
           maxResults: '10',
           key: youtubeApiKey,
         })
+        if (videoCategory) parameters.set('videoCategoryId', videoCategory)
         const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${parameters}`, {
           signal: controller.signal,
         })
@@ -181,7 +219,7 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
           throw new Error(getYouTubeSearchErrorMessage(data, response.status))
         }
 
-        const results = (data.items || [])
+        let results = (data.items || [])
           .map((item) => {
             const id = getYouTubeVideoId(item.id?.videoId)
             if (!id || !item.snippet) return null
@@ -194,6 +232,34 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
             }
           })
           .filter(Boolean)
+
+        setDurationWarning('')
+        if (results.length) {
+          try {
+            const durationParameters = new URLSearchParams({
+              part: 'contentDetails',
+              id: results.map((result) => result.id).join(','),
+              key: youtubeApiKey,
+            })
+            const durationResponse = await fetch(`https://www.googleapis.com/youtube/v3/videos?${durationParameters}`, {
+              signal: controller.signal,
+            })
+            const durationData = await durationResponse.json()
+            if (!durationResponse.ok) {
+              throw new Error(getYouTubeSearchErrorMessage(durationData, durationResponse.status))
+            }
+
+            const durations = new Map(
+              (durationData.items || []).map((item) => [item.id, formatVideoDuration(item.contentDetails?.duration)]),
+            )
+            results = results.map((result) => ({ ...result, duration: durations.get(result.id) || '--:--' }))
+          } catch (error) {
+            if (error.name === 'AbortError') return
+            results = results.map((result) => ({ ...result, duration: '--:--' }))
+            setDurationWarning(`No se pudieron cargar las duraciones: ${error.message}`)
+          }
+        }
+
         setSearchResults(results)
         setSearchStatus(results.length ? 'success' : 'empty')
       } catch (error) {
@@ -207,7 +273,7 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
       window.clearTimeout(timeout)
       controller.abort()
     }
-  }, [searchQuery, searchRevision, isVideoPlayerLocked])
+  }, [searchQuery, searchRevision, videoCategory, isVideoPlayerLocked])
 
   useEffect(() => {
     const videoId = selectedYouTubeVideo?.id
@@ -307,6 +373,10 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
   const handleYouTubeSelection = (result) => {
     if (isVideoPlayerLocked) return
     setSelectedYouTubeVideo(result)
+    setRecentVideos((currentVideos) => [
+      result,
+      ...currentVideos.filter((video) => video.id !== result.id),
+    ].slice(0, 6))
     setYouTubePlayerError('')
     setYouTubePlayerReady(false)
     setYouTubePlaybackState('loading')
@@ -352,6 +422,26 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
           </div>
 
           <form className="youtube-search-form" onSubmit={handleSearchSubmit}>
+            <select
+              className="youtube-category-select"
+              value={videoCategory}
+              onChange={(event) => {
+                setVideoCategory(event.target.value)
+                setSearchResults([])
+                setSearchError('')
+                setDurationWarning('')
+                setSearchStatus(searchQuery.trim() ? 'waiting' : 'idle')
+              }}
+              aria-label="Categoría de videos"
+              disabled={isVideoPlayerLocked}
+            >
+              <option value="">Todas las categorías</option>
+              <option value="10">Música</option>
+              <option value="27">Educación</option>
+              <option value="24">Entretenimiento</option>
+              <option value="28">Ciencia y tecnología</option>
+              <option value="17">Deportes</option>
+            </select>
             <input
               className="youtube-search-input"
               type="search"
@@ -380,10 +470,13 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
           {!isVideoPlayerLocked && searchStatus === 'loading' && <p className="youtube-status" role="status">Buscando videos…</p>}
           {searchStatus === 'empty' && <p className="youtube-status" role="status">No se encontraron videos que permitan reproducción integrada. Prueba otra búsqueda.</p>}
           {(searchStatus === 'error' || missingApiKey) && <p className="youtube-error" role="alert">{visibleSearchError}</p>}
+          {durationWarning && <p className="youtube-status" role="status">{durationWarning}</p>}
 
           {searchResults.length > 0 && (
-            <div className="youtube-results" aria-label="Resultados de búsqueda">
-              {searchResults.map((result) => (
+            <>
+              <div className="youtube-results-heading"><strong>Biblioteca de videos</strong><small>{searchResults.length} resultados</small></div>
+              <div className="youtube-results" aria-label="Resultados de búsqueda">
+                {searchResults.map((result) => (
                 <button
                   className={`youtube-result${selectedYouTubeVideo?.id === result.id ? ' selected' : ''}`}
                   key={result.id}
@@ -391,10 +484,42 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
                   disabled={isVideoPlayerLocked}
                   onClick={() => handleYouTubeSelection(result)}
                 >
-                  {result.thumbnail && <img className="youtube-thumbnail" src={result.thumbnail} alt="" loading="lazy" />}
+                  {result.thumbnail && (
+                    <span className="youtube-thumbnail-wrap">
+                      <img className="youtube-thumbnail" src={result.thumbnail} alt="" loading="lazy" />
+                      <span className="youtube-duration">{result.duration || '--:--'}</span>
+                    </span>
+                  )}
                   <span className="youtube-result-copy">
                     <strong>{result.title}</strong>
                     <small>{result.channel}</small>
+                  </span>
+                </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {recentVideos.length > 0 && (
+            <div className="youtube-recent">
+              <div className="youtube-results-heading"><strong>Videos recientes</strong><small>Reproducidos en este dispositivo</small></div>
+              {recentVideos.map((video) => (
+                <button
+                  className={`youtube-result${selectedYouTubeVideo?.id === video.id ? ' selected' : ''}`}
+                  key={video.id}
+                  type="button"
+                  disabled={isVideoPlayerLocked}
+                  onClick={() => handleYouTubeSelection(video)}
+                >
+                  {video.thumbnail && (
+                    <span className="youtube-thumbnail-wrap">
+                      <img className="youtube-thumbnail" src={video.thumbnail} alt="" loading="lazy" />
+                      <span className="youtube-duration">{video.duration || '--:--'}</span>
+                    </span>
+                  )}
+                  <span className="youtube-result-copy">
+                    <strong>{video.title}</strong>
+                    <small>{video.channel}</small>
                   </span>
                 </button>
               ))}

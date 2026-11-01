@@ -4,13 +4,19 @@ import {
   CloudDrizzle,
   CloudSun,
   Gauge,
+  Headphones,
   MapPin,
+  Play,
   Route,
   Sun,
   Thermometer,
   Wind,
+  ShieldCheck,
+  Wrench,
+  MapPinned,
 } from 'lucide-react'
 import { BotonTrayecto } from './boton_trayecto/boton_trayecto'
+import { distanciaDesdeKm, temperaturaDesdeC, velocidadDesdeKmh } from '../../utilidades/unidades'
 import './panel.css'
 
 const nivelesVelocidad = [0, 20, 40, 60, 80, 100, 120]
@@ -74,18 +80,20 @@ export function SeccionPanel({
   toggleSpeedSimulator,
   changeSimulatedSpeed,
   gpsStatus,
-  phoneBattery,
-  batteryAvailability,
-  distance,
-  trips,
+  telemetry,
+  units = 'metric',
+  privacy = false,
   weather,
   weatherStatus,
   position,
+  setMediaSection,
   alternarTrayecto,
   startGps,
   setView,
 }) {
   const riesgoVelocidad = obtenerRiesgoVelocidad(simulatedSpeed)
+  const displayedSpeed = velocidadDesdeKmh(speed, units)
+  const displayedRange = distanciaDesdeKm(telemetry.range, units)
 
   return (
     <>
@@ -102,11 +110,11 @@ export function SeccionPanel({
       <section className="metric-grid" aria-label="Datos actuales del vehículo">
         <article className="metric-card speed-card">
           <div className="metric-top"><span className="metric-label">VELOCIDAD ACTUAL</span><span className="metric-icon"><Gauge size={18} /></span></div>
-          <div className="speed-display"><strong>{Math.round(speed)}</strong><span>km/h</span></div>
+          <div className="speed-display"><strong>{Math.round(displayedSpeed.value)}</strong><span>{displayedSpeed.unit}</span></div>
           <div className="speed-meter"><span style={{ width: `${Math.min(speed / 1.2, 100)}%` }} /></div>
           <div className="metric-foot">
             <span><i className={`signal-dot${gpsStatus === 'active' || speedSimulatorActive ? '' : ' inactive'}`} /> {speedSimulatorActive ? 'Simulador activo' : gpsStatus === 'active' ? 'GPS en tiempo real' : 'GPS sin conexión'}</span>
-            <span>máx. 120 km/h</span>
+            <span>máx. {Math.round(velocidadDesdeKmh(120, units).value)} {displayedSpeed.unit}</span>
           </div>
           <button
             type="button"
@@ -118,7 +126,7 @@ export function SeccionPanel({
           </button>
           {speedSimulatorActive && (
             <label className="speed-simulator-control">
-              <span>Velocidad simulada <output>{simulatedSpeed} km/h</output></span>
+              <span>Velocidad simulada <output>{Math.round(velocidadDesdeKmh(simulatedSpeed, units).value)} {displayedSpeed.unit}</output></span>
               <div className="speed-levels" role="group" aria-label="Niveles de velocidad">
                 {nivelesVelocidad.map((nivel) => (
                   <button
@@ -150,30 +158,57 @@ export function SeccionPanel({
           )}
         </article>
 
-        <article className="metric-card">
-          <div className="metric-top"><span className="metric-label">BATERÍA DEL TELÉFONO</span><span className="metric-icon battery-color"><BatteryCharging size={18} /></span></div>
-          <div className="battery-row">
-            <strong>{phoneBattery ? Math.round(phoneBattery.level * 100) : '--'}<small>%</small></strong>
-            <span className="source-tag">{batteryAvailability === 'available' ? 'TELÉFONO' : batteryAvailability === 'unsupported' ? 'NO DISPONIBLE' : 'LEYENDO…'}</span>
-          </div>
-          <div className="battery-track"><span style={{ width: `${phoneBattery ? Math.round(phoneBattery.level * 100) : 0}%` }} /></div>
-          <div className="metric-foot">
-            <span>Estado de carga</span>
-            <strong>{phoneBattery ? (phoneBattery.charging ? 'Cargando' : 'En uso') : '--'}</strong>
-          </div>
-          <div className="metric-note">
-            {batteryAvailability === 'unsupported' ? 'Este navegador no comparte el nivel de batería' : batteryAvailability === 'unavailable' ? 'No se pudo leer la batería del teléfono' : 'Actualización en tiempo real'}
-          </div>
+        <article className="metric-card vehicle-metric">
+          <div className="metric-top"><span className="metric-label">BATERÍA DE TRACCIÓN</span><span className="metric-icon battery-color"><BatteryCharging size={18} /></span></div>
+          <div className="metric-unavailable">{telemetry.battery}<small>%</small></div>
+          <div className="battery-track demo-battery-track"><span style={{ width: `${telemetry.battery}%` }} /></div>
+          <div className="metric-foot"><span>Nivel de carga</span><strong>Simulado</strong></div>
+          <div className="metric-note">Dato de demostración, no telemetría real</div>
         </article>
 
-        <article className="metric-card">
-          <div className="metric-top"><span className="metric-label">DISTANCIA DEL TRAYECTO</span><span className="metric-icon distance-color"><Route size={18} /></span></div>
-          <div className="distance-display"><strong>{distance.toFixed(2)}</strong><span>km</span></div>
-          <div className="metric-foot">
-            <span>{tripStarted ? 'Trayecto en curso' : 'Inicia un trayecto para registrar'}</span>
-            <span className="muted-number">{trips.length} guardados</span>
-          </div>
+        <article className="metric-card vehicle-metric">
+          <div className="metric-top"><span className="metric-label">AUTONOMÍA ESTIMADA</span><span className="metric-icon distance-color"><Route size={18} /></span></div>
+          <div className="metric-unavailable">{Math.round(displayedRange.value)}<small>{displayedRange.unit}</small></div>
+          <div className="metric-foot"><span>Distancia restante</span><strong>Simulada</strong></div>
+          <div className="metric-note">Estimación de demostración</div>
         </article>
+
+        <article className="metric-card vehicle-metric">
+          <div className="metric-top"><span className="metric-label">TEMPERATURA</span><span className="metric-icon"><Thermometer size={18} /></span></div>
+          <div className="metric-unavailable">{Math.round(temperaturaDesdeC(telemetry.temperature, units))}<small>°{units === 'imperial' ? 'F' : 'C'}</small></div>
+          <div className="metric-foot"><span>Sistema eléctrico</span><strong>Simulado</strong></div>
+          <div className="metric-note">Dato de demostración, no telemetría real</div>
+        </article>
+      </section>
+
+      <section className="panel quick-access-panel" aria-label="Accesos rápidos">
+        <div className="section-title">
+          <div><span className="section-kicker">ATAJOS</span><h2>Accesos rápidos</h2></div>
+        </div>
+        <div className="quick-access-grid">
+          {[
+            { label: 'Navegación', detail: 'Buscar destino y ver el mapa', view: 'map', icon: MapPinned },
+            { label: 'Trayectos', detail: 'Consultar el historial', view: 'history', icon: Route },
+            { label: 'Mantenimiento', detail: 'Revisar tareas pendientes', view: 'maintenance', icon: Wrench },
+            { label: 'Música', detail: 'Abrir el reproductor', view: 'media', media: 'music', icon: Headphones },
+            { label: 'Video', detail: 'Explorar videos', view: 'media', media: 'video', icon: Play },
+            { label: 'Configuración', detail: 'Personalizar AutoDash', view: 'settings', icon: ShieldCheck },
+          ].map(({ label, detail, view: targetView, icon: Icon }) => (
+            <button
+              type="button"
+              className="quick-access-link"
+              key={label}
+              onClick={() => {
+                if (targetView === 'media') setMediaSection(label === 'Video' ? 'video' : 'music')
+                setView(targetView)
+              }}
+            >
+              <span><Icon size={16} /></span>
+              <span><strong>{label}</strong><small>{detail}</small></span>
+              <ChevronRight size={15} />
+            </button>
+          ))}
+        </div>
       </section>
 
       <section className="content-grid">
@@ -185,14 +220,14 @@ export function SeccionPanel({
           <div className="weather-status">{weatherStatus}</div>
           <div className="weather-main">
             <div className="weather-symbol"><Sun size={32} strokeWidth={1.5} /></div>
-            <div className="temperature">{weather ? `${Math.round(weather.temperature_2m)}°` : '--°'}<span>{weather ? 'Actual' : 'Sin ubicación'}</span></div>
+            <div className="temperature">{weather ? `${Math.round(temperaturaDesdeC(weather.temperature_2m, units))}°` : '--°'}<span>{weather ? (units === 'imperial' ? '°F actual' : '°C actual') : 'Sin ubicación'}</span></div>
           </div>
           <div className="weather-details">
             <div><Thermometer size={15} /><span>Humedad</span><strong>{weather ? `${weather.relative_humidity_2m}%` : '--'}</strong></div>
-            <div><Wind size={15} /><span>Viento</span><strong>{weather ? `${Math.round(weather.wind_speed_10m)} km/h` : '--'}</strong></div>
+            <div><Wind size={15} /><span>Viento</span><strong>{weather ? `${Math.round(velocidadDesdeKmh(weather.wind_speed_10m, units).value)} ${displayedSpeed.unit}` : '--'}</strong></div>
             <div><CloudDrizzle size={15} /><span>Prob. lluvia</span><strong>{weather?.precipitation_probability != null ? `${weather.precipitation_probability}%` : '--'}</strong></div>
           </div>
-          <button className="text-action" onClick={startGps}><MapPin size={14} /> {position ? `${position.lat.toFixed(3)}, ${position.lng.toFixed(3)}` : 'Permitir ubicación'} <ChevronRight size={14} /></button>
+          <button className="text-action" onClick={startGps}><MapPin size={14} /> {position ? (privacy ? 'Ubicación activa · coordenadas ocultas' : `${position.lat.toFixed(3)}, ${position.lng.toFixed(3)}`) : 'Permitir ubicación'} <ChevronRight size={14} /></button>
         </article>
 
         <article className="panel map-preview">
@@ -207,7 +242,7 @@ export function SeccionPanel({
             <span className="map-road-label road-a">AV. PRINCIPAL</span>
             <span className="map-road-label road-b">CALLE 8</span>
             <span className="map-pin-center"><MapPin size={19} fill="currentColor" /></span>
-            <span className="map-coordinates">{position ? `${position.lat.toFixed(4)}°, ${position.lng.toFixed(4)}°` : 'Esperando señal GPS'}</span>
+            <span className="map-coordinates">{position ? (privacy ? 'Ubicación protegida' : `${position.lat.toFixed(4)}°, ${position.lng.toFixed(4)}°`) : 'Esperando señal GPS'}</span>
           </div>
           <div className="map-foot">
             <span><i className={gpsStatus === 'active' ? 'signal-dot' : 'signal-dot inactive'} /> {gpsStatus === 'active' ? 'Posición actualizada' : 'Ubicación sin conectar'}</span>
@@ -216,29 +251,6 @@ export function SeccionPanel({
         </article>
       </section>
 
-      <section className="panel recent-panel">
-        <div className="section-title">
-          <div><span className="section-kicker">ACTIVIDAD</span><h2>Últimos trayectos</h2></div>
-          <button className="subtle-button" onClick={() => setView('history')}>Ver historial <ChevronRight size={15} /></button>
-        </div>
-        {trips.length ? (
-          <div className="trip-list">
-            {trips.slice(0, 3).map((trip) => (
-              <div className="trip-row" key={trip.id}>
-                <span className="trip-row-icon"><Route size={16} /></span>
-                <strong>{trip.date}</strong>
-                <span>{trip.distance} km</span>
-                <span className="trip-consumption">{trip.consumption}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="empty-inline">
-            <span className="empty-icon"><Route size={17} /></span>
-            <span>Aún no hay trayectos registrados. Inicia uno para empezar tu historial.</span>
-          </div>
-        )}
-      </section>
     </>
   )
 }

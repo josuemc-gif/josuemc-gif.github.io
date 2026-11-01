@@ -1,4 +1,4 @@
-export const UMBRAL_VELOCIDAD_KMH = 5
+export const UMBRAL_VELOCIDAD_KMH = 10
 export const ESPERA_DESBLOQUEO_MS = 3000
 
 let ultimaLectura = null

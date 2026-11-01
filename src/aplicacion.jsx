@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { Activity, Gauge, Headphones, MapPinned, ShieldCheck, Wrench } from 'lucide-react'
 import './estilos/globales.css'
 import { BarraLateral } from './componentes/estructura/barra_lateral'
@@ -12,13 +12,17 @@ import { SeccionConfiguracion } from './componentes/configuracion/seccion_config
 import { PanelBloqueoMovimiento } from './componentes/seguridad/panel_bloqueo_movimiento'
 import { useSeguimientoTrayecto } from './servicios/seguimiento_trayecto'
 import { consultarClima } from './servicios/clima'
-import { useBateriaTelefono } from './servicios/bateria_telefono'
 import { useBuscadorDestinos } from './servicios/buscador_destinos'
 import { usePreferencias } from './servicios/preferencias'
 import { useTareasMantenimiento } from './servicios/tareas_mantenimiento'
+import { useTelemetriaDemostracion } from './servicios/telemetria_demostracion'
+import { useAutenticacion } from './servicios/autenticacion'
 import { saludoPorHora } from './utilidades/formateadores'
 import './estilos/tema.css'
 import './estilos/adaptable.css'
+
+const PantallaAcceso = lazy(() => import('./componentes/autenticacion/pantalla_acceso')
+  .then((module) => ({ default: module.PantallaAcceso })))
 
 const navigation = [
   { id: 'dashboard', label: 'Panel', icon: Gauge },
@@ -29,26 +33,62 @@ const navigation = [
 ]
 
 function Aplicacion() {
-  const [view, setView] = useState('dashboard')
+  const auth = useAutenticacion()
+  const accessFallback = (
+    <main className="auth-loading" role="status" aria-live="polite">
+      <span className="auth-spinner" />
+      <span>Recuperando tu sesión segura…</span>
+    </main>
+  )
+
+  if (auth.loading) return accessFallback
+  if (!auth.user) return <Suspense fallback={accessFallback}><PantallaAcceso auth={auth} /></Suspense>
+
+  return <PanelAutoDash auth={auth} />
+}
+
+function PanelAutoDash({ auth }) {
+  const [view, setViewState] = useState('dashboard')
+  const [mediaSection, setMediaSectionState] = useState('music')
   const [videoBlocked, setVideoBlocked] = useState(true)
-  const { bateria: phoneBattery, disponibilidad: batteryAvailability } = useBateriaTelefono()
   const [weather, setWeather] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [tripWarning, setTripWarning] = useState(false)
   const [clock, setClock] = useState(() => new Date())
+  const setView = useCallback((nextView) => {
+    if (nextView !== 'media') setVideoBlocked(true)
+    setViewState(nextView)
+  }, [])
+  const setMediaSection = useCallback((nextSection) => {
+    if (nextSection !== 'video') setVideoBlocked(true)
+    setMediaSectionState(nextSection)
+  }, [])
   const {
     dispositivo: device,
     setDispositivo: setDevice,
     altoContraste: highContrast,
     setAltoContraste: setHighContrast,
+    tema: themeMode,
+    setTema: setThemeMode,
     modoOscuro: darkMode,
-    setModoOscuro: setDarkMode,
     textoGrande: largeText,
     setTextoGrande: setLargeText,
     vozActivada: voiceEnabled,
     alternarVoz: toggleVoice,
+    notificaciones,
+    activarNotificaciones,
+    estadoNotificaciones,
+    sonido,
+    setSonido,
+    privacidad,
+    setPrivacidad,
+    unidades,
+    setUnidades,
+    idioma,
+    setIdioma,
   } = usePreferencias()
-  const { tareas: tasks, cambiarEstadoTarea: moveTask } = useTareasMantenimiento()
+  const { tareas: tasks, cambiarEstadoTarea: moveTask, agregarTarea: addTask, eliminarTarea: deleteTask } = useTareasMantenimiento()
+  const { telemetry, updateTelemetry } = useTelemetriaDemostracion()
   const busqueda = useBuscadorDestinos(view)
   const speak = useCallback((message) => {
     if (!voiceEnabled || !('speechSynthesis' in window)) return
@@ -61,8 +101,8 @@ function Aplicacion() {
     posicion: position,
     estadoGps: gpsStatus,
     velocidad: speed,
-    distancia: distance,
     trayectos: trips,
+    eliminarTrayecto: deleteTrip,
     trayectoIniciado: tripStarted,
     velocidadSimulada,
     simuladorActivo,
@@ -70,7 +110,7 @@ function Aplicacion() {
     cambiarVelocidadSimulada,
     iniciarGps: startGps,
     alternarTrayecto: toggleTrip,
-  } = useSeguimientoTrayecto({ anunciar: speak, alCambiarPosicion: busqueda.actualizarPosicion })
+  } = useSeguimientoTrayecto({ anunciar: speak, alCambiarPosicion: busqueda.actualizarPosicion, consumoSimulado: telemetry.consumption })
   const toggleTripWithMaintenanceCheck = useCallback(() => {
     if (!tripStarted && tasks.some((task) => task.status !== 'Completado')) {
       setTripWarning(true)
@@ -78,8 +118,26 @@ function Aplicacion() {
     }
 
     setTripWarning(false)
-    toggleTrip()
-  }, [tasks, toggleTrip, tripStarted])
+    toggleTrip(busqueda.destino?.name)
+    if (tripStarted && notificaciones && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification('AutoDash', { body: 'Tu trayecto quedó guardado en el historial.' })
+    }
+    if (tripStarted && sonido) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext
+      if (AudioContext) {
+        const audio = new AudioContext()
+        const oscillator = audio.createOscillator()
+        const volume = audio.createGain()
+        oscillator.frequency.value = 660
+        volume.gain.value = 0.08
+        oscillator.connect(volume)
+        volume.connect(audio.destination)
+        oscillator.start()
+        oscillator.stop(audio.currentTime + 0.12)
+        oscillator.addEventListener('ended', () => audio.close(), { once: true })
+      }
+    }
+  }, [busqueda.destino?.name, notificaciones, sonido, tasks, toggleTrip, tripStarted])
   const updateMaintenanceTask = useCallback((taskId, status) => {
     moveTask(taskId, status)
     if (tasks.every((task) => task.id === taskId ? status === 'Completado' : task.status === 'Completado')) {
@@ -107,20 +165,20 @@ function Aplicacion() {
   }, [weatherLatitude, weatherLongitude])
 
   const announceRoute = useCallback((summary) => {
-    speak(`Ruta calculada a ${summary.name}. ${summary.distance} kilómetros, aproximadamente ${summary.duration} minutos`)
+    speak(`Ruta calculada a ${summary.name}. ${summary.distanceLabel || `${summary.distance} kilómetros`}, aproximadamente ${summary.duration} minutos`)
   }, [speak])
 
   const statusText = { idle: 'GPS desconectado', searching: 'Buscando señal GPS…', active: 'GPS conectado', denied: 'Permiso de ubicación denegado', error: 'No se pudo obtener la ubicación', unsupported: 'GPS no compatible con este navegador', insecure: 'GPS requiere HTTPS' }[gpsStatus]
   const weatherStatus = weather ? 'Actualizado con tu ubicación' : 'Activa el GPS para consultar el clima local'
 
   return (
-    <div className={`app-shell device-${device}${highContrast ? ' high-contrast' : ''}${darkMode ? ' dark-mode' : ''}${largeText ? ' large-text' : ''}`}>
-      <BarraLateral navigation={navigation} view={view} setView={setView} menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
+    <div className={`app-shell device-${device}${highContrast ? ' high-contrast' : ''}${darkMode ? ' dark-mode' : ''}${largeText ? ' large-text' : ''}${menuOpen ? ' menu-open' : ''}`}>
+      <BarraLateral navigation={navigation} view={view} setView={setView} menuOpen={menuOpen} setMenuOpen={setMenuOpen} mediaSection={mediaSection} setMediaSection={setMediaSection} user={auth.user} onSignOut={auth.cerrarSesion} />
 
       {menuOpen && <button className="mobile-scrim" aria-label="Cerrar menú" onClick={() => setMenuOpen(false)} />}
 
       <main id="panel" className="main-area">
-        <BarraSuperior viewLabel={navigation.find((item) => item.id === view)?.label || 'Configuración'} gpsStatus={gpsStatus} statusText={statusText} setMenuOpen={setMenuOpen} />
+        <BarraSuperior viewLabel={view === 'media' ? `Multimedia · ${mediaSection === 'music' ? 'Música' : 'Video'}` : navigation.find((item) => item.id === view)?.label || 'Configuración'} gpsStatus={gpsStatus} statusText={statusText} setMenuOpen={setMenuOpen} themeMode={themeMode} setThemeMode={setThemeMode} />
 
         <div className="page-content">
           {gpsStatus === 'insecure' && (
@@ -147,13 +205,13 @@ function Aplicacion() {
               toggleSpeedSimulator={alternarSimulador}
               changeSimulatedSpeed={cambiarVelocidadSimulada}
               gpsStatus={gpsStatus}
-              phoneBattery={phoneBattery}
-              batteryAvailability={batteryAvailability}
-              distance={distance}
-              trips={trips}
+              telemetry={telemetry}
+              units={unidades}
+              privacy={privacidad}
               weather={weather}
               weatherStatus={weatherStatus}
               position={position}
+              setMediaSection={setMediaSection}
               alternarTrayecto={toggleTripWithMaintenanceCheck}
               startGps={startGps}
               setView={setView}
@@ -175,30 +233,53 @@ function Aplicacion() {
               handleDestinationKeyDown={busqueda.manejarTeclasDestino}
               startGps={startGps}
               destination={busqueda.destino}
+              tripStarted={tripStarted}
+              toggleTrip={toggleTripWithMaintenanceCheck}
+              darkMode={darkMode}
+              privacy={privacidad}
+              units={unidades}
               onRouteReady={announceRoute}
             />
           )}
 
-          {view === 'history' && <SeccionTrayectos trips={trips} tripStarted={tripStarted} toggleTrip={toggleTripWithMaintenanceCheck} startGps={startGps} setView={setView} />}
-          {view === 'maintenance' && <SeccionMantenimiento tasks={tasks} moveTask={updateMaintenanceTask} />}
-          {view === 'media' && <SeccionMultimedia isVideoPlayerLocked={videoBlocked} />}
+          {view === 'history' && <SeccionTrayectos trips={trips} deleteTrip={deleteTrip} tripStarted={tripStarted} toggleTrip={toggleTripWithMaintenanceCheck} startGps={startGps} setView={setView} units={unidades} />}
+          {view === 'maintenance' && <SeccionMantenimiento tasks={tasks} moveTask={updateMaintenanceTask} addTask={addTask} deleteTask={deleteTask} />}
+          {view === 'media' && <SeccionMultimedia isVideoPlayerLocked={videoBlocked || mediaSection !== 'video'} mediaTab={mediaSection} setMediaTab={setMediaSection} />}
           {view === 'settings' && (
             <SeccionConfiguracion
               device={device}
               setDevice={setDevice}
+              themeMode={themeMode}
+              setThemeMode={setThemeMode}
               darkMode={darkMode}
-              setDarkMode={setDarkMode}
               highContrast={highContrast}
               setHighContrast={setHighContrast}
               largeText={largeText}
               setLargeText={setLargeText}
               voiceEnabled={voiceEnabled}
               alternarVoz={toggleVoice}
+              telemetry={telemetry}
+              updateTelemetry={updateTelemetry}
+              notifications={notificaciones}
+              enableNotifications={activarNotificaciones}
+              notificationPermission={estadoNotificaciones}
+              sound={sonido}
+              setSound={setSonido}
+              privacy={privacidad}
+              setPrivacy={setPrivacidad}
+              units={unidades}
+              setUnits={setUnidades}
+              language={idioma}
+              setLanguage={setIdioma}
+              gpsStatus={gpsStatus}
+              startGps={startGps}
             />
           )}
         </div>
       </main>
-      <PanelBloqueoMovimiento onBloqueoChange={setVideoBlocked} />
+      {view === 'media' && mediaSection === 'video' && (
+        <PanelBloqueoMovimiento onBloqueoChange={setVideoBlocked} />
+      )}
     </div>
   )
 }

@@ -1,4 +1,6 @@
 import { LoaderCircle, MapPin } from 'lucide-react'
+import { BotonTrayecto } from '../panel/boton_trayecto/boton_trayecto'
+
 import { Mapa } from './mapa'
 import './navegacion.css'
 
@@ -16,7 +18,12 @@ export function SeccionNavegacion({
   handleDestinationKeyDown,
   startGps,
   destination,
+  tripStarted,
+  toggleTrip,
+  darkMode,
   onRouteReady,
+  privacy = false,
+  units = 'metric',
 }) {
   return (
     <section className="module-page">
@@ -26,7 +33,14 @@ export function SeccionNavegacion({
           <h1>Navegación<span>.</span></h1>
           <p>Escribe un destino y elige una sugerencia para trazar la ruta.</p>
         </div>
-        <button className="secondary-button" onClick={startGps}><MapPin size={16} /> {position ? 'Actualizar GPS' : 'Activar GPS'}</button>
+        <div className="navigation-actions">
+          <button className="secondary-button" onClick={startGps}><MapPin size={16} /> {position ? 'Actualizar GPS' : 'Activar GPS'}</button>
+          <BotonTrayecto
+            iniciado={tripStarted}
+            alAlternar={toggleTrip}
+            disabled={!tripStarted && (!position || !destination)}
+          />
+        </div>
       </div>
 
       <form className="route-search" onSubmit={(event) => {
@@ -39,7 +53,7 @@ export function SeccionNavegacion({
           <span className="origin-dot" />
           <div>
             <small>ORIGEN</small>
-            <strong>{position ? `${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}` : 'Esperando ubicación GPS'}</strong>
+            <strong>{position ? (privacy ? 'Ubicación protegida' : `${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}`) : 'Esperando ubicación GPS'}</strong>
           </div>
         </div>
         <div className="route-divider"><span /></div>
@@ -78,7 +92,7 @@ export function SeccionNavegacion({
       </form>
 
       <div className="map-panel">
-        <Mapa position={position} destination={destination} onRouteReady={onRouteReady} gpsStatus={gpsStatus} />
+        <Mapa position={position} destination={destination} onRouteReady={onRouteReady} gpsStatus={gpsStatus} darkMode={darkMode} units={units} />
       </div>
     </section>
   )

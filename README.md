@@ -30,6 +30,7 @@ El servidor local usa siempre `http://localhost:5173`. Si ese puerto está ocupa
 - El nivel de batería, la autonomía y el consumo no se simulan: requieren sensores instalados y un protocolo compatible con el vehículo. El módulo Bluetooth todavía no implementa un protocolo del carrito.
 - Multimedia permite buscar y reproducir audio de Wikimedia Commons, sin API key, con atribución y licencia disponibles en cada resultado. El catálogo incluye audio libre, no todas las canciones comerciales, y requiere conexión a Internet. También permite reproducir archivos locales, que no se suben a Internet, y buscar videos de YouTube con `VITE_YOUTUBE_API_KEY`; la búsqueda filtra videos disponibles para reproducción integrada y los carga con YouTube IFrame Player API. Si YouTube rechaza un video o falla la conexión, AutoDash muestra el motivo y permite reintentar. Esa clave queda visible para los usuarios del sitio.
 - Historial, tareas y preferencias se guardan en el almacenamiento local del navegador y no se sincronizan entre dispositivos. Si se cierra o recarga la página durante un trayecto, se recuperan el trayecto y la distancia acumulada; vuelve a activar el GPS para continuar registrando.
+- El acceso es una simulación local: nombre, correo, contraseña derivada con PBKDF2 y sesión se guardan en el almacenamiento del navegador. La cuenta solo funciona en el mismo navegador y dispositivo; no hay servidor, correo de confirmación, sincronización entre dispositivos ni recuperación de contraseña. No uses una contraseña real o reutilizada.
 
 ## Publicación permanente
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronUp, LockKeyhole, ShieldCheck } from 'lucide-react'
+import { ChevronDown, ChevronUp, Grip, LockKeyhole, ShieldCheck } from 'lucide-react'
 import {
   crearControlMovimiento,
   emitirVelocidad,
@@ -280,7 +280,9 @@ export function PanelBloqueoMovimiento({ onBloqueoChange }) {
   const [errorSenal, setErrorSenal] = useState('')
   const [bloqueado, setBloqueado] = useState(true)
   const [expandido, setExpandido] = useState(false)
+  const [posicionPanel, setPosicionPanel] = useState(null)
   const fuenteRef = useRef(fuente)
+  const arrastreRef = useRef(null)
 
   useEffect(() => {
     const actualizarBloqueo = (siguienteEstado) => {
@@ -380,20 +382,71 @@ export function PanelBloqueoMovimiento({ onBloqueoChange }) {
     emitirVelocidad(siguienteVelocidad, 'simulador')
   }
 
+  function iniciarArrastre(evento) {
+    if (!evento.isPrimary || evento.target.closest('button, input, select')) return
+    const rectangulo = evento.currentTarget.parentElement.getBoundingClientRect()
+    arrastreRef.current = {
+      pointerId: evento.pointerId,
+      startX: evento.clientX,
+      startY: evento.clientY,
+      left: rectangulo.left,
+      top: rectangulo.top,
+      width: rectangulo.width,
+      height: rectangulo.height,
+    }
+    evento.currentTarget.setPointerCapture(evento.pointerId)
+    evento.preventDefault()
+  }
+
+  function moverPanel(evento) {
+    const arrastre = arrastreRef.current
+    if (!arrastre || arrastre.pointerId !== evento.pointerId) return
+    const left = Math.min(
+      Math.max(0, arrastre.left + evento.clientX - arrastre.startX),
+      Math.max(0, window.innerWidth - arrastre.width),
+    )
+    const top = Math.min(
+      Math.max(0, arrastre.top + evento.clientY - arrastre.startY),
+      Math.max(0, window.innerHeight - arrastre.height),
+    )
+    setPosicionPanel({ left, top })
+  }
+
+  function terminarArrastre(evento) {
+    if (arrastreRef.current?.pointerId === evento.pointerId) arrastreRef.current = null
+  }
+
   const velocidadVisible = Number.isFinite(velocidad) ? `${velocidad.toFixed(1)} km/h` : 'Sin señal'
 
   return (
-    <aside className={`panel-bloqueo-movimiento${expandido ? ' panel-bloqueo-expandido' : ''}`} aria-label="Modo demostración del bloqueo por movimiento">
-      <button
+    <aside
+      className={`panel-bloqueo-movimiento${expandido ? ' panel-bloqueo-expandido' : ''}`}
+      aria-label="Modo demostración del bloqueo por movimiento"
+      style={posicionPanel ? { left: `${posicionPanel.left}px`, top: `${posicionPanel.top}px`, right: 'auto', bottom: 'auto' } : undefined}
+    >
+      <div
         className="panel-bloqueo-encabezado"
-        type="button"
-        aria-expanded={expandido}
-        onClick={() => setExpandido((actual) => !actual)}
+        onPointerDown={iniciarArrastre}
+        onPointerMove={moverPanel}
+        onPointerUp={terminarArrastre}
+        onPointerCancel={terminarArrastre}
+        title="Toca y arrastra para mover el panel"
       >
-        <span className="panel-bloqueo-icono"><ShieldCheck size={17} /></span>
-        <span className="panel-bloqueo-titulo">Modo demostración / simulador</span>
-        {expandido ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-      </button>
+        <div className="panel-bloqueo-arrastre">
+          <span className="panel-bloqueo-icono"><ShieldCheck size={17} /></span>
+          <span className="panel-bloqueo-titulo">Modo demostración / simulador</span>
+          <Grip className="panel-bloqueo-control-arrastre" size={16} aria-hidden="true" />
+        </div>
+        <button
+          className="panel-bloqueo-alternar"
+          type="button"
+          aria-label={expandido ? 'Contraer bloqueador de video' : 'Expandir bloqueador de video'}
+          aria-expanded={expandido}
+          onClick={() => setExpandido((actual) => !actual)}
+        >
+          {expandido ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+        </button>
+      </div>
 
       <div className={`panel-bloqueo-estado${bloqueado ? ' bloqueado' : ' permitido'}`} role="status" aria-live="polite">
         <LockKeyhole size={15} />

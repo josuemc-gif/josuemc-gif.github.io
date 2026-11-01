@@ -21,3 +21,40 @@
 .history-table { min-height: 300px; }
 
 .empty-state .secondary-button { margin-top: 5px; }
+
+.history-tabs { display: flex; gap: 5px; margin: 13px 0 11px; border-bottom: 1px solid var(--line); }
+
+.history-tabs button { min-height: 34px; border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 0 12px; color: var(--ink-faint); font-size: 10px; cursor: pointer; }
+
+.history-tabs button.active { border-bottom-color: var(--teal); color: var(--teal-dark); font-weight: 700; }
+
+.history-filters { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 9px; margin-bottom: 11px; }
+
+.history-filters label { display: grid; gap: 4px; color: var(--ink-faint); font-size: 8px; }
+
+.history-filters input, .history-filters select { min-width: 0; min-height: 35px; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); padding: 0 9px; color: var(--ink); font: inherit; font-size: 10px; }
+
+.trip-actions { white-space: nowrap; }
+
+.trip-actions .text-action { margin: 0 7px 0 0; font-size: 9px; }
+
+.danger-action { color: #b34d4d; }
+
+.history-empty-filter { padding: 18px; color: var(--ink-faint); font-size: 10px; text-align: center; }
+
+.history-summary-detail { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 12px 0; }
+
+.history-summary-detail p { display: grid; gap: 7px; border: 1px solid var(--line); border-radius: 5px; padding: 13px; }
+
+.history-summary-detail strong { color: var(--ink); font-family: var(--display); font-size: 17px; }
+
+.history-summary-detail span, .history-simulation-note { color: var(--ink-faint); font-size: 9px; }
+
+.selected-trip-detail { display: grid; gap: 7px; margin-top: 12px; border: 1px solid var(--line); border-radius: 5px; background: var(--canvas); padding: 11px; color: var(--ink-soft); font-size: 10px; }
+
+.selected-trip-detail > div { display: flex; justify-content: space-between; align-items: center; }
+
+@media (max-width: 520px) {
+  .history-filters, .history-summary-detail { grid-template-columns: 1fr; }
+  .history-filters select { min-height: 40px; }
+}

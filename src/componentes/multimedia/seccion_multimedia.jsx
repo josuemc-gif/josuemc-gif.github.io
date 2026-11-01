@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Bluetooth, ExternalLink, FolderOpen, Music2, Pause, Play, Search, Square, Volume2 } from 'lucide-react'
+import { Bluetooth, ExternalLink, FolderOpen, Music2, Pause, Play, Repeat, Search, Shuffle, SkipBack, SkipForward, Square, Volume2 } from 'lucide-react'
 import { SeccionVideos } from './seccion_videos'
 import './multimedia.css'
 
@@ -19,8 +19,31 @@ function getPlainText(value) {
   return new DOMParser().parseFromString(value, 'text/html').body.textContent.trim()
 }
 
-export function SeccionMultimedia({ isVideoPlayerLocked = false }) {
+function getLocalTrackId(file) {
+  return `${file.name}:${file.lastModified}:${file.size}`
+}
+
+function readPlaylists() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('autodash-playlists'))
+    return Array.isArray(stored) ? stored : []
+  } catch {
+    return []
+  }
+}
+
+function readTrackMetadata() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('autodash-track-metadata'))
+    return stored && typeof stored === 'object' ? stored : {}
+  } catch {
+    return {}
+  }
+}
+
+export function SeccionMultimedia({ isVideoPlayerLocked = false, mediaTab = 'music', setMediaTab }) {
   const audioRef = useRef(null)
+  const autoplaySelectionRef = useRef(false)
   const fileInputRef = useRef(null)
   const searchControllerRef = useRef(null)
   const [songs, setSongs] = useState([])
@@ -35,13 +58,36 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false }) {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(0.65)
+  const [repeatQueue, setRepeatQueue] = useState(false)
+  const [shuffleQueue, setShuffleQueue] = useState(false)
   const [message, setMessage] = useState('')
+  const [playlists, setPlaylists] = useState(readPlaylists)
+  const [trackMetadata, setTrackMetadata] = useState(readTrackMetadata)
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState(null)
+  const [playlistName, setPlaylistName] = useState('')
 
   const selectedSong = songs[selectedIndex]
   const hasSelection = Boolean(selectedSong || selectedOnlineTrack)
   const filteredSongs = songs
     .map((file, index) => ({ file, index }))
-    .filter(({ file }) => file.name.toLowerCase().includes(search.trim().toLowerCase()))
+    .filter(({ file }) => {
+      if (!selectedPlaylistId) return true
+      const selectedPlaylist = playlists.find((playlist) => playlist.id === selectedPlaylistId)
+      return selectedPlaylist?.trackIds.includes(getLocalTrackId(file))
+    })
+    .filter(({ file }) => {
+      const metadata = trackMetadata[getLocalTrackId(file)]
+      const text = `${file.name} ${metadata?.artist || ''} ${metadata?.album || ''}`.toLowerCase()
+      return text.includes(search.trim().toLowerCase())
+    })
+  const playbackQueue = [
+    ...songs.map((file, index) => ({ id: `local-${index}`, type: 'local', index })),
+    ...catalogResults.map((track) => ({ id: `online-${track.trackId}`, type: 'online', track })),
+  ]
+  const currentQueueId = selectedOnlineTrack
+    ? `online-${selectedOnlineTrack.trackId}`
+    : selectedSong ? `local-${selectedIndex}` : null
+  const currentQueueIndex = playbackQueue.findIndex((item) => item.id === currentQueueId)
 
   useEffect(() => {
     const audio = audioRef.current
@@ -57,6 +103,13 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false }) {
       audio.pause()
       audio.removeAttribute('src')
       audio.load()
+      if (autoplaySelectionRef.current) {
+        autoplaySelectionRef.current = false
+        audio.play().catch(() => {
+          setPlaying(false)
+          setMessage('No se pudo reproducir esta pista. Comprueba el formato o intenta con otra vista previa.')
+        })
+      }
       return undefined
     }
 
@@ -67,13 +120,40 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false }) {
       audio.load()
       if (localUrl) URL.revokeObjectURL(localUrl)
     }
-  }, [selectedSong, selectedOnlineTrack])
+  }, [selectedSong, selectedOnlineTrack, repeatQueue])
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume
   }, [volume])
 
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.loop = repeatQueue
+  }, [repeatQueue])
+
   useEffect(() => () => searchControllerRef.current?.abort(), [])
+
+  useEffect(() => {
+    localStorage.setItem('autodash-playlists', JSON.stringify(playlists))
+  }, [playlists])
+
+  useEffect(() => {
+    localStorage.setItem('autodash-track-metadata', JSON.stringify(trackMetadata))
+  }, [trackMetadata])
+
+  function createPlaylist(event) {
+    event.preventDefault()
+    const name = playlistName.trim()
+    if (!name) return
+    const playlist = {
+      id: `playlist-${Date.now()}`,
+      name,
+      trackIds: songs.map(getLocalTrackId),
+      trackNames: songs.map((song) => getSongTitle(song.name)),
+    }
+    setPlaylists((current) => [...current, playlist])
+    setSelectedPlaylistId(playlist.id)
+    setPlaylistName('')
+  }
 
   function addSongs(event) {
     const selectedFiles = Array.from(event.target.files || [])
@@ -81,6 +161,15 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false }) {
 
     const firstNewIndex = songs.length
     setSongs((currentSongs) => [...currentSongs, ...selectedFiles])
+    if (selectedPlaylistId) {
+      setPlaylists((current) => current.map((playlist) => playlist.id === selectedPlaylistId
+        ? {
+          ...playlist,
+          trackIds: [...new Set([...playlist.trackIds, ...selectedFiles.map(getLocalTrackId)])],
+          trackNames: [...new Set([...playlist.trackNames, ...selectedFiles.map((song) => getSongTitle(song.name))])],
+        }
+        : playlist))
+    }
     if (selectedIndex < 0 && !selectedOnlineTrack) setSelectedIndex(firstNewIndex)
     setMessage('')
     event.target.value = ''
@@ -93,16 +182,41 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false }) {
     setMessage('')
   }
 
-  function selectSong(index) {
+  function selectSong(index, autoplay = false) {
+    autoplaySelectionRef.current = autoplay
     setSelectedIndex(index)
     setSelectedOnlineTrack(null)
     resetPlaybackState()
   }
 
-  function selectOnlineTrack(track) {
+  function selectOnlineTrack(track, autoplay = false) {
+    autoplaySelectionRef.current = autoplay
     setSelectedOnlineTrack(track)
     setSelectedIndex(-1)
     resetPlaybackState()
+  }
+
+  function moveInQueue(direction) {
+    if (playbackQueue.length < 2) return
+
+    let targetIndex
+    if (shuffleQueue) {
+      const availableIndices = playbackQueue
+        .map((_, index) => index)
+        .filter((index) => index !== currentQueueIndex)
+      targetIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)]
+    } else {
+      const startIndex = currentQueueIndex < 0 ? (direction > 0 ? -1 : 0) : currentQueueIndex
+      targetIndex = startIndex + direction
+      if (targetIndex < 0 || targetIndex >= playbackQueue.length) {
+        if (!repeatQueue) return
+        targetIndex = (targetIndex + playbackQueue.length) % playbackQueue.length
+      }
+    }
+
+    const target = playbackQueue[targetIndex]
+    if (target.type === 'local') selectSong(target.index, true)
+    else selectOnlineTrack(target.track, true)
   }
 
   async function searchCatalog(event) {
@@ -199,7 +313,15 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false }) {
   }
 
   const currentTitle = selectedOnlineTrack?.trackName || (selectedSong && getSongTitle(selectedSong.name))
-  const currentArtist = selectedOnlineTrack?.artistName
+  const currentMetadata = selectedSong ? trackMetadata[getLocalTrackId(selectedSong)] || {} : {}
+  const currentArtist = selectedOnlineTrack?.artistName || currentMetadata.artist || ''
+  const currentAlbum = currentMetadata.album || ''
+
+  function updateCurrentMetadata(field, value) {
+    if (!selectedSong) return
+    const id = getLocalTrackId(selectedSong)
+    setTrackMetadata((current) => ({ ...current, [id]: { ...current[id], [field]: value } }))
+  }
 
   return (
     <section className="module-page media-page">
@@ -207,12 +329,58 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false }) {
         <div>
           <div className="eyebrow"><span className="eyebrow-line" /> CENTRO MULTIMEDIA</div>
           <h1>Multimedia<span>.</span></h1>
-          <p>Busca música de uso libre o reproduce archivos de audio de tu dispositivo.</p>
+          <p>{mediaTab === 'music'
+            ? 'Busca música de uso libre o reproduce archivos de audio de tu dispositivo.'
+            : 'Explora videos y reproduce contenido desde YouTube.'}</p>
         </div>
-        <span className="board-count"><Bluetooth size={15} /> Música libre y audio local</span>
+        <span className="board-count"><Bluetooth size={15} /> {mediaTab === 'music' ? 'Música libre y audio local' : 'Biblioteca de videos'}</span>
       </div>
 
-      <div className="media-layout">
+      <div className="media-tabs" role="group" aria-label="Secciones de multimedia">
+        <button
+          id="media-tab-music"
+          className={`media-tab${mediaTab === 'music' ? ' active' : ''}`}
+          type="button"
+          aria-pressed={mediaTab === 'music'}
+          aria-controls="media-panel-music"
+          onClick={() => setMediaTab('music')}
+        >
+          <Music2 size={16} /> Música
+        </button>
+        <button
+          id="media-tab-video"
+          className={`media-tab${mediaTab === 'video' ? ' active' : ''}`}
+          type="button"
+          aria-pressed={mediaTab === 'video'}
+          aria-controls="media-panel-video"
+          onClick={() => setMediaTab('video')}
+        >
+          <Play size={16} /> Video
+        </button>
+      </div>
+
+      <div id="media-panel-music" className="media-section" aria-labelledby="media-tab-music" hidden={mediaTab !== 'music'}>
+        <div className="media-layout">
+        <article className="panel media-playlists-panel">
+          <div className="section-title"><div><span className="section-kicker">TU COLECCIÓN</span><h2>Listas de reproducción</h2></div><span className="playlist-count">{playlists.length}</span></div>
+          <button type="button" className={`playlist-item${selectedPlaylistId === null ? ' selected' : ''}`} onClick={() => setSelectedPlaylistId(null)}>
+            <span className="playlist-number"><Music2 size={14} /></span><span className="playlist-song"><strong>Toda mi música</strong><small>{songs.length} pistas en este dispositivo</small></span>
+          </button>
+          {playlists.map((playlist) => (
+            <div className={`saved-playlist${selectedPlaylistId === playlist.id ? ' selected' : ''}`} key={playlist.id}>
+              <button type="button" className="playlist-item" onClick={() => setSelectedPlaylistId(playlist.id)}>
+                <span className="playlist-number"><Music2 size={14} /></span><span className="playlist-song"><strong>{playlist.name}</strong><small>{playlist.trackIds.length} pistas guardadas</small></span>
+              </button>
+              <button type="button" className="playlist-delete-button" aria-label={`Eliminar lista ${playlist.name}`} onClick={() => { setPlaylists((current) => current.filter((item) => item.id !== playlist.id)); if (selectedPlaylistId === playlist.id) setSelectedPlaylistId(null) }}>×</button>
+            </div>
+          ))}
+          <form className="playlist-create-form" onSubmit={createPlaylist}>
+            <label htmlFor="playlist-name">Crear una lista</label>
+            <input id="playlist-name" value={playlistName} onChange={(event) => setPlaylistName(event.target.value)} maxLength="50" placeholder="Nombre de la lista" />
+            <button type="submit" className="secondary-button" disabled={!playlistName.trim()}>Crear</button>
+            <small>Incluye los archivos locales añadidos actualmente.</small>
+          </form>
+        </article>
         <article className="panel media-player">
           <div className="album-art">
             <span className="album-sun" />
@@ -226,17 +394,22 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false }) {
             <h2>{currentTitle || 'Selecciona una canción'}</h2>
             <p>{selectedOnlineTrack
               ? `${currentArtist} · ${selectedOnlineTrack.license}`
-              : selectedSong ? `Archivo: ${selectedSong.name}` : 'Busca música en línea o añade archivos desde tu dispositivo.'}</p>
+              : selectedSong ? `${currentArtist || 'Artista sin especificar'}${currentAlbum ? ` · ${currentAlbum}` : ''} · ${selectedSong.name}` : 'Busca música en línea o añade archivos desde tu dispositivo.'}</p>
             {selectedOnlineTrack?.trackViewUrl && (
               <a className="media-store-link" href={selectedOnlineTrack.trackViewUrl} target="_blank" rel="noreferrer">
                 Ver archivo y atribución <ExternalLink size={12} />
               </a>
             )}
           </div>
+          {selectedSong && <div className="track-metadata-editor">
+            <label>Artista<input value={currentMetadata.artist || ''} maxLength="80" placeholder="Añadir artista" onChange={(event) => updateCurrentMetadata('artist', event.target.value)} /></label>
+            <label>Álbum<input value={currentMetadata.album || ''} maxLength="80" placeholder="Añadir álbum" onChange={(event) => updateCurrentMetadata('album', event.target.value)} /></label>
+          </div>}
 
           <audio
             ref={audioRef}
             preload="metadata"
+            onCanPlay={() => setMessage('')}
             onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
             onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
             onPlay={() => setPlaying(true)}
@@ -265,11 +438,23 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false }) {
           <div className="audio-times"><span>{formatTime(currentTime)}</span><span>{formatTime(duration)}</span></div>
 
           <div className="player-controls">
-            <button className="icon-button" aria-label="Detener audio" onClick={stopPlayback} disabled={!hasSelection}>
-              <Square size={17} fill="currentColor" />
+            <button className={`icon-button queue-mode-button${shuffleQueue ? ' selected' : ''}`} aria-label="Reproducción aleatoria" title="Reproducción aleatoria" aria-pressed={shuffleQueue} onClick={() => setShuffleQueue((enabled) => !enabled)} disabled={playbackQueue.length < 2}>
+              <Shuffle size={16} />
+            </button>
+            <button className="icon-button" aria-label="Pista anterior" title="Pista anterior" onClick={() => moveInQueue(-1)} disabled={playbackQueue.length < 2}>
+              <SkipBack size={17} fill="currentColor" />
             </button>
             <button className="play-button" aria-label={playing ? 'Pausar' : 'Reproducir'} onClick={togglePlayback} disabled={!hasSelection}>
               {playing ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+            </button>
+            <button className="icon-button" aria-label="Pista siguiente" title="Pista siguiente" onClick={() => moveInQueue(1)} disabled={playbackQueue.length < 2}>
+              <SkipForward size={17} fill="currentColor" />
+            </button>
+            <button className={`icon-button queue-mode-button${repeatQueue ? ' selected' : ''}`} aria-label="Repetir pista" title="Repetir pista" aria-pressed={repeatQueue} onClick={() => setRepeatQueue((enabled) => !enabled)} disabled={!hasSelection}>
+              <Repeat size={16} />
+            </button>
+            <button className="icon-button" aria-label="Detener audio" title="Detener audio" onClick={stopPlayback} disabled={!hasSelection}>
+              <Square size={15} fill="currentColor" />
             </button>
           </div>
 
@@ -282,6 +467,8 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false }) {
         </article>
 
         <article className="panel playlist-panel">
+          <div className="media-source-grid">
+          <section className="media-source-column media-online-source" aria-label="Catálogo de música en línea">
           <div className="section-title">
             <div><span className="section-kicker">CATÁLOGO EN LÍNEA</span><h2>Buscar música</h2></div>
             <span className="playlist-count">Wikimedia Commons</span>
@@ -323,8 +510,10 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false }) {
             </div>
           )}
 
+          </section>
+          <section className="media-source-column media-local-source" aria-label="Biblioteca de audio local">
           <div className="media-library-heading">
-            <div><span className="section-kicker">TU DISPOSITIVO</span><h2>Archivos locales</h2></div>
+            <div><span className="section-kicker">TU DISPOSITIVO</span><h2>{selectedPlaylistId ? playlists.find((playlist) => playlist.id === selectedPlaylistId)?.name || 'Lista' : 'Archivos locales'}</h2></div>
             <span className="playlist-count">{songs.length} {songs.length === 1 ? 'pista' : 'pistas'}</span>
           </div>
           <label className="media-search">
@@ -348,22 +537,28 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false }) {
           <div className="media-playlist">
             {filteredSongs.map(({ file, index }) => (
               <button
-                key={`${file.name}-${file.lastModified}-${index}`}
+                key={getLocalTrackId(file)}
                 className={`playlist-item${!selectedOnlineTrack && selectedIndex === index ? ' selected' : ''}`}
                 onClick={() => selectSong(index)}
                 aria-current={!selectedOnlineTrack && selectedIndex === index ? 'true' : undefined}
               >
                 <span className="playlist-number">{!selectedOnlineTrack && selectedIndex === index && playing ? <span className="playing-bars"><i /><i /><i /></span> : <Music2 size={14} />}</span>
-                <span className="playlist-song"><strong>{getSongTitle(file.name)}</strong><small>{file.name}</small></span>
+                <span className="playlist-song"><strong>{getSongTitle(file.name)}</strong><small>{trackMetadata[getLocalTrackId(file)]?.artist || trackMetadata[getLocalTrackId(file)]?.album || file.name}</small></span>
               </button>
             ))}
             {songs.length === 0 && <p className="media-empty">Añade archivos si quieres reproducir música guardada en tu dispositivo.</p>}
+            {songs.length > 0 && selectedPlaylistId && filteredSongs.length === 0 && <p className="media-empty">Los archivos de esta lista no están cargados en esta sesión. Vuelve a seleccionar los archivos originales.</p>}
             {songs.length > 0 && filteredSongs.length === 0 && <p className="media-empty">No se encontraron archivos con esa búsqueda.</p>}
           </div>
+          </section>
+          </div>
         </article>
+        </div>
       </div>
 
-      <SeccionVideos isVideoPlayerLocked={isVideoPlayerLocked} />
+      <div id="media-panel-video" className="media-section" aria-labelledby="media-tab-video" hidden={mediaTab !== 'video'}>
+        <SeccionVideos isVideoPlayerLocked={isVideoPlayerLocked} />
+      </div>
     </section>
   )
 }
