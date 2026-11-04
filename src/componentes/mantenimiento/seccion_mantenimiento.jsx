@@ -3,6 +3,20 @@ import { BatteryCharging, Check, CircleAlert, Plus, Trash2, Wrench, Zap } from '
 import './mantenimiento.css'
 
 const columns = ['Pendiente', 'En curso', 'Completado']
+const urgencyLabels = { urgent: 'Prioritario / urgente', medium: 'Nivel medio', low: 'No prioritario' }
+const urgencyExamples = [
+  { id: 'low-charge', urgency: 'low', system: 'BATERÍA', title: 'Batería con carga baja', detail: 'Aún queda autonomía suficiente para terminar el trayecto.' },
+  { id: 'oil-change', urgency: 'low', system: 'MOTOR', title: 'Cambio de aceite', detail: 'Ejemplo para vehículos de combustión; no aplica a este vehículo eléctrico.' },
+  { id: 'coolant', urgency: 'medium', system: 'REFRIGERACIÓN', title: 'Nivel de refrigerante bajo', detail: 'Sin alerta de temperatura ni mensaje crítico.' },
+  { id: 'tire-pressure', urgency: 'medium', system: 'NEUMÁTICOS', title: 'Presión baja en un neumático', detail: 'Pérdida lenta, sin daño visible ni desinflado rápido.' },
+  { id: 'motor-fault', urgency: 'urgent', system: 'MOTOR ELÉCTRICO', title: 'Falla del motor eléctrico', detail: 'Pérdida de potencia o alerta que impide conducir con normalidad.' },
+  { id: 'electrical-fault', urgency: 'urgent', system: 'SISTEMA ELÉCTRICO', title: 'Falla eléctrica de alto voltaje', detail: 'Alerta crítica o vehículo que no inicia. No manipular; solicitar asistencia.' },
+]
+const urgencyGroups = [
+  { urgency: 'low', title: 'No prioritario' },
+  { urgency: 'medium', title: 'Nivel medio' },
+  { urgency: 'urgent', title: 'Prioritario / urgente' },
+]
 const systems = [
   { name: 'Batería', key: 'BATERÍA DE TRACCIÓN', icon: BatteryCharging },
   { name: 'Sistema eléctrico', key: 'SISTEMA ELÉCTRICO', icon: Zap },
@@ -11,8 +25,9 @@ const systems = [
   { name: 'Luces', key: 'ILUMINACIÓN', icon: Check },
 ]
 
-export function SeccionMantenimiento({ tasks, moveTask, addTask, deleteTask }) {
+export function SeccionMantenimiento({ tasks, moveTask, updateUrgency, addTask, deleteTask }) {
   const [formOpen, setFormOpen] = useState(false)
+  const [examplePriorities, setExamplePriorities] = useState(() => Object.fromEntries(urgencyExamples.map(({ id, urgency }) => [id, urgency])))
   const tareasCompletadas = tasks.filter((task) => task.status === 'Completado')
   const completadas = tareasCompletadas.length
 
@@ -52,13 +67,14 @@ export function SeccionMantenimiento({ tasks, moveTask, addTask, deleteTask }) {
           event.preventDefault()
           const form = event.currentTarget
           const data = new FormData(form)
-          addTask({ title: data.get('title'), system: data.get('system'), detail: data.get('detail') })
+          addTask({ title: data.get('title'), system: data.get('system'), detail: data.get('detail'), urgency: data.get('urgency') })
           form.reset()
           setFormOpen(false)
         }}>
           <label>Nombre de la revisión<input required name="title" maxLength="90" placeholder="Ej. Inspección de conectores" /></label>
           <label>Sistema<select name="system">{systems.map((system) => <option key={system.key} value={system.key}>{system.name}</option>)}</select></label>
           <label>Detalle (opcional)<input name="detail" maxLength="140" placeholder="Fecha, kilometraje o notas" /></label>
+          <label>Prioridad<select name="urgency" defaultValue="medium"><option value="urgent">Prioritario / urgente</option><option value="medium">Nivel medio</option><option value="low">No prioritario</option></select></label>
           <button className="trip-button" type="submit"><Plus size={15} /> Guardar revisión</button>
         </form>
       )}
@@ -66,6 +82,46 @@ export function SeccionMantenimiento({ tasks, moveTask, addTask, deleteTask }) {
       <p className="maintenance-telemetry-note" role="note">
         Los porcentajes representan revisiones completadas, no salud del componente. Los estados son manuales y no equivalen a diagnóstico del vehículo.
       </p>
+
+      <section className="maintenance-priority-guide" aria-labelledby="maintenance-priority-title">
+        <div className="maintenance-priority-heading">
+          <span className="section-kicker">EJEMPLOS DE CLASIFICACIÓN</span>
+          <h2 id="maintenance-priority-title">Identifica el nivel del problema</h2>
+        </div>
+        <div className="maintenance-priority-levels">
+          {urgencyGroups.map(({ urgency, title }) => (
+            <section className={`maintenance-priority-group maintenance-priority-group--${urgency}`} key={urgency}>
+              <h3>{title}</h3>
+              <div className="maintenance-priority-examples">
+                {urgencyExamples.filter((example) => example.urgency === urgency).map((example) => {
+                  const currentUrgency = examplePriorities[example.id]
+                  return (
+                    <article className={`task-card task-card--${currentUrgency} maintenance-example-card`} key={example.id}>
+                      <span className="task-type"><Wrench size={13} /> {example.system}</span>
+                      <span className={`task-urgency task-urgency--${currentUrgency}`}>{urgencyLabels[currentUrgency]}</span>
+                      <h4>{example.title}</h4>
+                      <p>{example.detail}</p>
+                      <label className="task-priority">
+                        Prioridad
+                        <select
+                          aria-label={`Prioridad del ejemplo: ${example.title}`}
+                          value={currentUrgency}
+                          onChange={(event) => setExamplePriorities((current) => ({ ...current, [example.id]: event.target.value }))}
+                        >
+                          <option value="urgent">Prioritario / urgente</option>
+                          <option value="medium">Nivel medio</option>
+                          <option value="low">No prioritario</option>
+                        </select>
+                      </label>
+                    </article>
+                  )
+                })}
+              </div>
+            </section>
+          ))}
+        </div>
+        <p className="maintenance-priority-warning">Ejemplos orientativos, no diagnósticos. Ante una alerta crítica o riesgo inmediato, detente en un lugar seguro y solicita asistencia.</p>
+      </section>
 
       <div className="kanban-board">
         {columns.map((column) => (
@@ -77,10 +133,19 @@ export function SeccionMantenimiento({ tasks, moveTask, addTask, deleteTask }) {
             </div>
 
             {tasks.filter((task) => task.status === column).map((task) => (
-              <article className="task-card" key={task.id}>
+              <article className={`task-card task-card--${task.urgency || 'medium'}`} key={task.id}>
                 <span className="task-type"><Wrench size={13} /> {task.system || 'SISTEMA ELÉCTRICO'}</span>
+                <span className={`task-urgency task-urgency--${task.urgency || 'medium'}`}>{urgencyLabels[task.urgency] || urgencyLabels.medium}</span>
                 <h3>{task.title}</h3>
                 <p>{task.detail}</p>
+                <label className="task-priority">
+                  Prioridad
+                  <select aria-label={`Prioridad de ${task.title}`} value={task.urgency || 'medium'} onChange={(event) => updateUrgency(task.id, event.target.value)}>
+                    <option value="urgent">Prioritario / urgente</option>
+                    <option value="medium">Nivel medio</option>
+                    <option value="low">No prioritario</option>
+                  </select>
+                </label>
                 <label className="task-move">
                   Mover a
                   <select aria-label={`Estado de ${task.title}`} value={task.status} onChange={(event) => moveTask(task.id, event.target.value)}>

@@ -89,7 +89,7 @@ function PanelAutoDash({ auth }) {
     idioma,
     setIdioma,
   } = usePreferencias()
-  const { tareas: tasks, cambiarEstadoTarea: moveTask, agregarTarea: addTask, eliminarTarea: deleteTask } = useTareasMantenimiento()
+  const { tareas: tasks, cambiarEstadoTarea: moveTask, cambiarUrgenciaTarea: updateUrgency, agregarTarea: addTask, eliminarTarea: deleteTask } = useTareasMantenimiento()
   const { telemetry, updateTelemetry } = useTelemetriaDemostracion()
   const busqueda = useBuscadorDestinos(view)
   const speak = useCallback((message) => {
@@ -274,7 +274,7 @@ function PanelAutoDash({ auth }) {
           )}
 
           {view === 'history' && <SeccionTrayectos trips={trips} deleteTrip={deleteTrip} tripStarted={tripStarted} toggleTrip={toggleTripWithMaintenanceCheck} startGps={startGps} setView={setView} units={unidades} />}
-          {view === 'maintenance' && <SeccionMantenimiento tasks={tasks} moveTask={updateMaintenanceTask} addTask={addTask} deleteTask={deleteTask} />}
+          {view === 'maintenance' && <SeccionMantenimiento tasks={tasks} moveTask={updateMaintenanceTask} updateUrgency={updateUrgency} addTask={addTask} deleteTask={deleteTask} />}
           {view === 'media' && <SeccionMultimedia isVideoPlayerLocked={videoBlocked || mediaSection !== 'video'} mediaTab={mediaSection} setMediaTab={setMediaSection} />}
           {view === 'settings' && (
             <SeccionConfiguracion

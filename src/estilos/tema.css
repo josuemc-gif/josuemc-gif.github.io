@@ -35,6 +35,18 @@
 .dark-mode .media-panel,
 .dark-mode .youtube-retry-button { border-color: var(--line); background: var(--paper); }
 
+.dark-mode .task-card--urgent { border-color: var(--line); border-left-color: #ff8175; background: var(--paper); }
+
+.dark-mode .task-card--medium { border-color: var(--line); border-left-color: #ffbd65; background: var(--paper); }
+
+.dark-mode .task-card--low { border-color: var(--line); border-left-color: #72c995; background: var(--paper); }
+
+.dark-mode .maintenance-priority-level--low { border-color: #356348; background: #1d3028; color: #a7d7b5; }
+
+.dark-mode .maintenance-priority-level--medium { border-color: #705d2b; background: #302a1d; color: #eed58a; }
+
+.dark-mode .maintenance-priority-level--urgent { border-color: #75413e; background: #351f25; color: #f0aaa3; }
+
 .dark-mode .panel { background: #081a2d; }
 
 .dark-mode .sidebar { box-shadow: 12px 0 36px rgb(0 0 0 / 10%); }
