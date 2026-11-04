@@ -54,7 +54,6 @@ function PanelAutoDash({ auth }) {
   const [videoBlocked, setVideoBlocked] = useState(true)
   const [weather, setWeather] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [tripWarning, setTripWarning] = useState(false)
   const [clock, setClock] = useState(() => new Date())
   const { bateria: phoneBattery, disponibilidad: batteryAvailability } = useBateriaTelefono()
   const setView = useCallback((nextView) => {
@@ -89,7 +88,7 @@ function PanelAutoDash({ auth }) {
     idioma,
     setIdioma,
   } = usePreferencias()
-  const { tareas: tasks, cambiarEstadoTarea: moveTask, cambiarUrgenciaTarea: updateUrgency, agregarTarea: addTask, eliminarTarea: deleteTask } = useTareasMantenimiento()
+  const { tareas: tasks, agregarTarea: addTask } = useTareasMantenimiento()
   const { telemetry, updateTelemetry } = useTelemetriaDemostracion()
   const busqueda = useBuscadorDestinos(view)
   const speak = useCallback((message) => {
@@ -114,13 +113,7 @@ function PanelAutoDash({ auth }) {
     iniciarGps: startGps,
     alternarTrayecto: toggleTrip,
   } = useSeguimientoTrayecto({ anunciar: speak, alCambiarPosicion: busqueda.actualizarPosicion, consumoSimulado: telemetry.consumption })
-  const toggleTripWithMaintenanceCheck = useCallback(() => {
-    if (!tripStarted && tasks.some((task) => task.status !== 'Completado')) {
-      setTripWarning(true)
-      return
-    }
-
-    setTripWarning(false)
+  const toggleTripWithFeedback = useCallback(() => {
     toggleTrip(busqueda.destino?.name)
     if (tripStarted && notificaciones && 'Notification' in window && Notification.permission === 'granted') {
       new Notification('AutoDash', { body: 'Tu trayecto quedó guardado en el historial.' })
@@ -140,13 +133,7 @@ function PanelAutoDash({ auth }) {
         oscillator.addEventListener('ended', () => audio.close(), { once: true })
       }
     }
-  }, [busqueda.destino?.name, notificaciones, sonido, tasks, toggleTrip, tripStarted])
-  const updateMaintenanceTask = useCallback((taskId, status) => {
-    moveTask(taskId, status)
-    if (tasks.every((task) => task.id === taskId ? status === 'Completado' : task.status === 'Completado')) {
-      setTripWarning(false)
-    }
-  }, [moveTask, tasks])
+  }, [busqueda.destino?.name, notificaciones, sonido, toggleTrip, tripStarted])
   const weatherLatitude = position ? Number(position.lat.toFixed(2)) : null
   const weatherLongitude = position ? Number(position.lng.toFixed(2)) : null
 
@@ -215,13 +202,6 @@ function PanelAutoDash({ auth }) {
             </div>
           )}
 
-          {tripWarning && (
-            <div className="maintenance-trip-notice" role="alert">
-              <span>Termina la revisión de tareas de mantenimiento antes de iniciar el trayecto.</span>
-              <button type="button" onClick={() => setView('maintenance')}>Ir a mantenimiento</button>
-            </div>
-          )}
-
           {view === 'dashboard' && (
             <SeccionPanel
               greeting={saludoPorHora(clock)}
@@ -243,7 +223,7 @@ function PanelAutoDash({ auth }) {
               weatherLoading={weatherLoading}
               position={position}
               setMediaSection={setMediaSection}
-              alternarTrayecto={toggleTripWithMaintenanceCheck}
+              alternarTrayecto={toggleTripWithFeedback}
               startGps={startGps}
               setView={setView}
             />
@@ -265,7 +245,7 @@ function PanelAutoDash({ auth }) {
               startGps={startGps}
               destination={busqueda.destino}
               tripStarted={tripStarted}
-              toggleTrip={toggleTripWithMaintenanceCheck}
+              toggleTrip={toggleTripWithFeedback}
               darkMode={darkMode}
               privacy={privacidad}
               units={unidades}
@@ -273,8 +253,8 @@ function PanelAutoDash({ auth }) {
             />
           )}
 
-          {view === 'history' && <SeccionTrayectos trips={trips} deleteTrip={deleteTrip} tripStarted={tripStarted} toggleTrip={toggleTripWithMaintenanceCheck} startGps={startGps} setView={setView} units={unidades} />}
-          {view === 'maintenance' && <SeccionMantenimiento tasks={tasks} moveTask={updateMaintenanceTask} updateUrgency={updateUrgency} addTask={addTask} deleteTask={deleteTask} />}
+          {view === 'history' && <SeccionTrayectos trips={trips} deleteTrip={deleteTrip} tripStarted={tripStarted} toggleTrip={toggleTripWithFeedback} startGps={startGps} setView={setView} units={unidades} />}
+          {view === 'maintenance' && <SeccionMantenimiento tasks={tasks} addTask={addTask} />}
           {view === 'media' && <SeccionMultimedia isVideoPlayerLocked={videoBlocked || mediaSection !== 'video'} mediaTab={mediaSection} setMediaTab={setMediaSection} />}
           {view === 'settings' && (
             <SeccionConfiguracion

@@ -109,11 +109,9 @@
 .dark-mode .setting-row,
 .dark-mode .empty-inline,
 .dark-mode .weather-details,
-.dark-mode .media-disclaimer,
-.dark-mode .task-move { border-color: var(--line); }
+.dark-mode .media-disclaimer { border-color: var(--line); }
 
-.dark-mode .profile,
-.dark-mode .kanban-heading { border-color: var(--line); }
+.dark-mode .profile { border-color: var(--line); }
 
 .dark-mode .profile-signout:hover { background: #102943; color: #70d7ff; }
 
@@ -121,7 +119,6 @@
 
 .dark-mode .avatar,
 .dark-mode .source-tag,
-.dark-mode .column-count,
 .dark-mode .playlist-count,
 .dark-mode .radio-indicator { background: #102943; color: var(--ink-soft); }
 
@@ -166,9 +163,10 @@
 .dark-mode .destination-suggestions,
 .dark-mode .suggestion-option,
 .dark-mode .route-search,
-.dark-mode .task-move select,
 .dark-mode .panel-bloqueo-fuente select,
 .dark-mode .panel-bloqueo-botones button,
+.dark-mode .maintenance-add-form input,
+.dark-mode .maintenance-add-form select,
 .dark-mode .youtube-search-input { border-color: var(--line); background: var(--paper); color: var(--ink); }
 
 .dark-mode .youtube-category-select { border-color: var(--line); background: var(--paper); color: var(--ink); }
@@ -188,14 +186,12 @@
 .dark-mode .speed-risk-extreme,
 .dark-mode .speed-risk-stopped { border-color: #236087; background: #102943; color: #d7efff; }
 
-.dark-mode .kanban-column { border-color: var(--line); background: #091a2d; }
-
-.dark-mode .task-card { box-shadow: 0 6px 18px rgb(0 0 0 / 12%); }
-
 .dark-mode .device-option.chosen { box-shadow: inset 0 0 0 1px #009dff; }
 
 .dark-mode .device-option.chosen .radio-indicator,
 .dark-mode .toggle.on { border-color: #009dff; background: #009dff; }
+
+.dark-mode .task-card { box-shadow: 0 6px 18px rgb(0 0 0 / 12%); }
 
 .dark-mode .toggle { background: #25445c; }
 
@@ -318,7 +314,7 @@
 .dark-mode .panel-bloqueo-advertencia,
 .dark-mode .panel-bloqueo-aviso,
 .dark-mode .gps-security-notice,
-.dark-mode .maintenance-trip-notice { border-color: #70552f; background: #302719; color: #f3d49a; }
+.dark-mode .gps-security-notice { border-color: #70552f; background: #302719; color: #f3d49a; }
 
 .dark-mode .youtube-status,
 .dark-mode .youtube-result-copy small,
@@ -357,8 +353,6 @@
 
 .dark-mode .gps-security-notice svg { color: #ffc96e; }
 
-.dark-mode .maintenance-trip-notice button { color: #f3d49a; }
-
 .dark-mode .footer-mark { background: #102943; }
 
 .dark-mode table td { border-color: var(--line); }
@@ -367,9 +361,7 @@
 
 .dark-mode .settings-select-grid select,
 .dark-mode .history-filters input,
-.dark-mode .history-filters select,
-.dark-mode .maintenance-add-form input,
-.dark-mode .maintenance-add-form select { border-color: var(--line); background: var(--paper); color: var(--ink); }
+.dark-mode .history-filters select { border-color: var(--line); background: var(--paper); color: var(--ink); }
 
 .dark-mode .history-tabs { border-color: var(--line); }
 

@@ -18,7 +18,6 @@
   .quick-access-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .maintenance-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .media-layout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .maintenance-add-form { grid-template-columns: 1fr 1fr; }
   .app-footer > span:last-child { max-width: 52%; text-align: right; }
 }
 
@@ -50,6 +49,7 @@
   .page-heading > .trip-button, .page-heading > .secondary-button { min-height: 33px; padding-inline: 9px; font-size: 9px; }
   .metric-grid { gap: 9px; margin-bottom: 10px; }
   .quick-access-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .maintenance-add-form { grid-template-columns: 1fr 1fr; }
   .maintenance-summary { gap: 8px; }
   .metric-card { padding: 13px 11px 11px; }
   .metric-top { align-items: flex-start; }
@@ -77,8 +77,6 @@
   .destination-field .trip-button { gap: 4px; padding-inline: 7px; }
   .route-origin strong { font-size: 8px; }
   .map-frame { height: min(64vh, 590px); min-height: 390px; }
-  .kanban-board { gap: 7px; }
-  .kanban-column { padding: 8px; }
   .task-card { padding: 8px; }
   .device-options { gap: 7px; }
   .device-option { gap: 7px; padding: 8px; }
@@ -133,8 +131,6 @@
   .history-summary { grid-template-columns: 1fr 1fr; gap: 8px; }
   .history-summary .panel { padding: 12px; }
   .history-summary .panel:last-child { grid-column: 1 / -1; }
-  .kanban-board { grid-template-columns: 1fr; gap: 9px; }
-  .kanban-column { min-height: 80px; }
   .task-card { width: 100%; }
   .media-layout { grid-template-columns: 1fr; }
   .media-source-grid { grid-template-columns: 1fr; }
@@ -152,12 +148,12 @@
   .app-footer > span:last-child { max-width: none; font-size: 7px; line-height: 1.5; }
   .device-phone .content-grid { grid-template-columns: 1fr; }
   .maintenance-summary { grid-template-columns: 1fr; }
-  .maintenance-add-form { grid-template-columns: 1fr; }
-  .maintenance-history-list { grid-template-columns: 1fr; }
   .maintenance-summary-card { padding: 10px; }
   .theme-options { flex-basis: 100%; margin-left: 42px; }
   .media-tabs { width: 100%; }
   .media-tab { flex: 1; }
   .device-phone .metric-grid { grid-template-columns: 1fr 1fr; }
   .device-phone .metric-card:first-child { grid-column: 1 / -1; }
+  .maintenance-history-list { grid-template-columns: 1fr; }
+  .maintenance-add-form { grid-template-columns: 1fr; }
 }

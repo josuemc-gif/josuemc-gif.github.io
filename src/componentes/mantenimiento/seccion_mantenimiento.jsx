@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { BatteryCharging, Check, CircleAlert, Plus, Trash2, Wrench, Zap } from 'lucide-react'
+import { BatteryCharging, Check, CircleAlert, Plus, Wrench, Zap } from 'lucide-react'
 import './mantenimiento.css'
 
-const columns = ['Pendiente', 'En curso', 'Completado']
 const urgencyLabels = { urgent: 'Prioritario / urgente', medium: 'Nivel medio', low: 'No prioritario' }
 const urgencyExamples = [
   { id: 'low-charge', urgency: 'low', system: 'BATERÍA', title: 'Batería con carga baja', detail: 'Aún queda autonomía suficiente para terminar el trayecto.' },
@@ -25,7 +24,7 @@ const systems = [
   { name: 'Luces', key: 'ILUMINACIÓN', icon: Check },
 ]
 
-export function SeccionMantenimiento({ tasks, moveTask, updateUrgency, addTask, deleteTask }) {
+export function SeccionMantenimiento({ tasks, addTask }) {
   const [formOpen, setFormOpen] = useState(false)
   const [examplePriorities, setExamplePriorities] = useState(() => Object.fromEntries(urgencyExamples.map(({ id, urgency }) => [id, urgency])))
   const tareasCompletadas = tasks.filter((task) => task.status === 'Completado')
@@ -122,44 +121,6 @@ export function SeccionMantenimiento({ tasks, moveTask, updateUrgency, addTask, 
         </div>
         <p className="maintenance-priority-warning">Ejemplos orientativos, no diagnósticos. Ante una alerta crítica o riesgo inmediato, detente en un lugar seguro y solicita asistencia.</p>
       </section>
-
-      <div className="kanban-board">
-        {columns.map((column) => (
-          <section className="kanban-column" key={column}>
-            <div className="kanban-heading">
-              <span className={`column-dot ${column.toLowerCase().replace(' ', '-')}`} />
-              <h2>{column}</h2>
-              <span className="column-count">{tasks.filter((task) => task.status === column).length}</span>
-            </div>
-
-            {tasks.filter((task) => task.status === column).map((task) => (
-              <article className={`task-card task-card--${task.urgency || 'medium'}`} key={task.id}>
-                <span className="task-type"><Wrench size={13} /> {task.system || 'SISTEMA ELÉCTRICO'}</span>
-                <span className={`task-urgency task-urgency--${task.urgency || 'medium'}`}>{urgencyLabels[task.urgency] || urgencyLabels.medium}</span>
-                <h3>{task.title}</h3>
-                <p>{task.detail}</p>
-                <label className="task-priority">
-                  Prioridad
-                  <select aria-label={`Prioridad de ${task.title}`} value={task.urgency || 'medium'} onChange={(event) => updateUrgency(task.id, event.target.value)}>
-                    <option value="urgent">Prioritario / urgente</option>
-                    <option value="medium">Nivel medio</option>
-                    <option value="low">No prioritario</option>
-                  </select>
-                </label>
-                <label className="task-move">
-                  Mover a
-                  <select aria-label={`Estado de ${task.title}`} value={task.status} onChange={(event) => moveTask(task.id, event.target.value)}>
-                    {columns.map((option) => <option key={option}>{option}</option>)}
-                  </select>
-                </label>
-                {task.custom && <button className="maintenance-delete-task" type="button" onClick={() => deleteTask(task.id)} aria-label={`Eliminar ${task.title}`}><Trash2 size={14} /></button>}
-              </article>
-            ))}
-
-            {!tasks.some((task) => task.status === column) && <div className="column-empty">Sin tareas</div>}
-          </section>
-        ))}
-      </div>
 
       <article className="panel maintenance-history">
         <div className="section-title">
