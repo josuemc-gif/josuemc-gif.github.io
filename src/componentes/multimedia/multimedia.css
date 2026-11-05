@@ -96,6 +96,22 @@
 
 .media-message { margin-top: 10px; border: 1px solid #e8c5bd; border-radius: 4px; background: #fff5f2; padding: 9px; color: #9b4134; font-size: 10px; line-height: 1.5; }
 
+.media-recent-history { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+
+.media-recent-history ul { display: grid; gap: 5px; margin: 8px 0 0; padding: 0; list-style: none; }
+
+.media-recent-history li { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; border-radius: 4px; background: var(--paper); padding: 7px; }
+
+.media-recent-history li > span { display: grid; min-width: 0; gap: 3px; }
+
+.media-recent-history li strong, .media-recent-history li small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.media-recent-history li strong { color: var(--ink); font-size: 9px; }
+
+.media-recent-history li small, .media-recent-history li time { color: var(--ink-faint); font-size: 8px; }
+
+.media-recent-history li time { flex: 0 0 auto; }
+
 .playlist-panel { min-height: 310px; }
 
 .media-source-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }

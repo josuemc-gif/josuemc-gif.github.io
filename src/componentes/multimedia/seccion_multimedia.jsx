@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bluetooth, ExternalLink, FolderOpen, Music2, Pause, Play, Repeat, Search, Shuffle, SkipBack, SkipForward, Square, Volume2 } from 'lucide-react'
 import { SeccionVideos } from './seccion_videos'
+import { agregarElementoReciente, guardarHistorialLocal, leerHistorialLocal } from '../../servicios/historial_local'
 import './multimedia.css'
 
 function formatTime(seconds) {
@@ -8,6 +9,13 @@ function formatTime(seconds) {
   const minutes = Math.floor(seconds / 60)
   const remainingSeconds = Math.floor(seconds % 60).toString().padStart(2, '0')
   return `${minutes}:${remainingSeconds}`
+}
+
+function formatActivityDate(timestamp) {
+  const date = new Date(timestamp)
+  return Number.isNaN(date.getTime())
+    ? 'Fecha no disponible'
+    : new Intl.DateTimeFormat('es', { dateStyle: 'short', timeStyle: 'short' }).format(date)
 }
 
 function getSongTitle(fileName) {
@@ -41,7 +49,7 @@ function readTrackMetadata() {
   }
 }
 
-export function SeccionMultimedia({ isVideoPlayerLocked = false, mediaTab = 'music', setMediaTab }) {
+export function SeccionMultimedia({ userId, isVideoPlayerLocked = false, mediaTab = 'music', setMediaTab }) {
   const audioRef = useRef(null)
   const autoplaySelectionRef = useRef(false)
   const fileInputRef = useRef(null)
@@ -63,6 +71,7 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false, mediaTab = 'mus
   const [message, setMessage] = useState('')
   const [playlists, setPlaylists] = useState(readPlaylists)
   const [trackMetadata, setTrackMetadata] = useState(readTrackMetadata)
+  const [recentTracks, setRecentTracks] = useState(() => leerHistorialLocal('musica', userId))
   const [selectedPlaylistId, setSelectedPlaylistId] = useState(null)
   const [playlistName, setPlaylistName] = useState('')
 
@@ -139,6 +148,10 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false, mediaTab = 'mus
   useEffect(() => {
     localStorage.setItem('autodash-track-metadata', JSON.stringify(trackMetadata))
   }, [trackMetadata])
+
+  useEffect(() => {
+    guardarHistorialLocal('musica', userId, recentTracks)
+  }, [recentTracks, userId])
 
   function createPlaylist(event) {
     event.preventDefault()
@@ -412,7 +425,20 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false, mediaTab = 'mus
             onCanPlay={() => setMessage('')}
             onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)}
             onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-            onPlay={() => setPlaying(true)}
+            onPlay={() => {
+              setPlaying(true)
+              if (!currentTitle) return
+              const trackId = selectedOnlineTrack
+                ? `online-${selectedOnlineTrack.trackId}`
+                : `local-${getLocalTrackId(selectedSong)}`
+              setRecentTracks((current) => agregarElementoReciente(current, {
+                id: trackId,
+                title: currentTitle,
+                artist: currentArtist || 'Artista no especificado',
+                source: selectedOnlineTrack ? 'En línea' : 'Archivo local',
+                playedAt: new Date().toISOString(),
+              }, 20))
+            }}
             onPause={() => setPlaying(false)}
             onEnded={() => setPlaying(false)}
             onError={() => {
@@ -463,6 +489,22 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false, mediaTab = 'mus
             <input type="range" aria-label="Volumen" min="0" max="1" step="0.01" value={volume} onChange={(event) => setVolume(Number(event.target.value))} />
           </div>
           {message && <p className="media-message" role="alert">{message}</p>}
+          <section className="media-recent-history" aria-labelledby="recent-music-heading">
+            <div className="media-library-heading">
+              <div><span className="section-kicker">SOLO EN ESTE DISPOSITIVO</span><h2 id="recent-music-heading">Reproducido recientemente</h2></div>
+              <span className="playlist-count">{recentTracks.length}</span>
+            </div>
+            {recentTracks.length ? (
+              <ul>
+                {recentTracks.slice(0, 8).map((track) => (
+                  <li key={`${track.id}-${track.playedAt}`}>
+                    <span><strong>{track.title}</strong><small>{track.artist} · {track.source}</small></span>
+                    <time dateTime={track.playedAt}>{formatActivityDate(track.playedAt)}</time>
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="media-empty">Las canciones aparecerán aquí cuando las reproduzcas.</p>}
+          </section>
           <p className="media-disclaimer">El catálogo contiene archivos de audio con licencia abierta de Wikimedia Commons; se requiere conexión a Internet y se muestra la atribución disponible.</p>
         </article>
 
@@ -557,7 +599,7 @@ export function SeccionMultimedia({ isVideoPlayerLocked = false, mediaTab = 'mus
       </div>
 
       <div id="media-panel-video" className="media-section" aria-labelledby="media-tab-video" hidden={mediaTab !== 'video'}>
-        <SeccionVideos isVideoPlayerLocked={isVideoPlayerLocked} />
+        <SeccionVideos userId={userId} isVideoPlayerLocked={isVideoPlayerLocked} />
       </div>
     </section>
   )

@@ -36,7 +36,7 @@ export function SeccionTrayectos({ trips, deleteTrip, tripStarted, toggleTrip, s
         <div>
           <div className="eyebrow"><span className="eyebrow-line" /> REGISTRO DE ACTIVIDAD</div>
           <h1>Trayectos<span>.</span></h1>
-          <p>Distancias registradas desde la ubicación de tu dispositivo.</p>
+          <p>Distancias registradas desde tu dispositivo. Este historial se guarda localmente y no se sincroniza con otros equipos.</p>
         </div>
         <BotonTrayecto iniciado={tripStarted} alAlternar={toggleTrip} />
       </div>

@@ -1,26 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { distanciaEntre } from '../utilidades/formateadores'
+import { guardarHistorialLocal, leerHistorialLocal } from './historial_local'
 
-function leerTrayectoGuardado() {
+function leerTrayectoGuardado(usuarioId) {
   try {
-    return JSON.parse(localStorage.getItem('autodash-active-trip'))
+    return JSON.parse(localStorage.getItem(`autodash-local-active-trip-${encodeURIComponent(String(usuarioId || 'guest'))}`))
   } catch {
     return null
   }
 }
 
-function leerHistorial() {
-  try {
-    return JSON.parse(localStorage.getItem('autodash-trips')) || []
-  } catch {
-    return []
-  }
-}
-
-export function useSeguimientoTrayecto({ anunciar, alCambiarPosicion, consumoSimulado = 14.6 }) {
-  const [trayectoGuardado] = useState(leerTrayectoGuardado)
+export function useSeguimientoTrayecto({ usuarioId, anunciar, alCambiarPosicion, consumoSimulado = 14.6 }) {
+  const [trayectoGuardado] = useState(() => leerTrayectoGuardado(usuarioId))
   const [distancia, setDistancia] = useState(() => Number(trayectoGuardado?.distance) || 0)
-  const [trayectos, setTrayectos] = useState(leerHistorial)
+  const [trayectos, setTrayectos] = useState(() => leerHistorialLocal('trayectos', usuarioId))
   const [trayectoIniciado, setTrayectoIniciado] = useState(() => Boolean(trayectoGuardado?.startedAt))
   const [iniciadoEn, setIniciadoEn] = useState(() => trayectoGuardado?.startedAt || null)
   const [rutaActiva, setRutaActiva] = useState(() => trayectoGuardado?.route || null)
@@ -49,12 +42,13 @@ export function useSeguimientoTrayecto({ anunciar, alCambiarPosicion, consumoSim
   }, [])
 
   useEffect(() => {
+    const activeTripKey = `autodash-local-active-trip-${encodeURIComponent(String(usuarioId || 'guest'))}`
     if (!trayectoIniciado || !iniciadoEn) {
-      localStorage.removeItem('autodash-active-trip')
+      localStorage.removeItem(activeTripKey)
       return
     }
-    localStorage.setItem('autodash-active-trip', JSON.stringify({ startedAt: iniciadoEn, distance: distancia, route: rutaActiva }))
-  }, [distancia, rutaActiva, trayectoIniciado, iniciadoEn])
+    localStorage.setItem(activeTripKey, JSON.stringify({ startedAt: iniciadoEn, distance: distancia, route: rutaActiva }))
+  }, [distancia, rutaActiva, trayectoIniciado, iniciadoEn, usuarioId])
 
   useEffect(() => {
     if (!simuladorActivo || !trayectoIniciado || velocidadSimulada === 0) return undefined
@@ -169,17 +163,17 @@ export function useSeguimientoTrayecto({ anunciar, alCambiarPosicion, consumoSim
     anunciar(`Trayecto finalizado. Distancia recorrida: ${distancia.toFixed(2)} kilómetros`)
     const historialActualizado = [trayecto, ...trayectos]
     setTrayectos(historialActualizado)
-    localStorage.setItem('autodash-trips', JSON.stringify(historialActualizado))
+    guardarHistorialLocal('trayectos', usuarioId, historialActualizado)
     setTrayectoIniciado(false)
     setIniciadoEn(null)
     setRutaActiva(null)
-  }, [anunciar, consumoSimulado, distancia, estadoGps, iniciadoEn, iniciarGps, rutaActiva, simuladorActivo, trayectoIniciado, trayectos])
+  }, [anunciar, consumoSimulado, distancia, estadoGps, iniciadoEn, iniciarGps, rutaActiva, simuladorActivo, trayectoIniciado, trayectos, usuarioId])
 
   const eliminarTrayecto = useCallback((id) => {
     const actualizados = trayectos.filter((trayecto) => trayecto.id !== id)
-    localStorage.setItem('autodash-trips', JSON.stringify(actualizados))
+    guardarHistorialLocal('trayectos', usuarioId, actualizados)
     setTrayectos(actualizados)
-  }, [trayectos])
+  }, [trayectos, usuarioId])
 
   return {
     posicion,

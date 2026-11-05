@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, LockKeyhole, Search, Video } from 'lucide-react'
 import { getYouTubeEmbedUrl, getYouTubeVideoId } from '../../utilidades/youtube'
+import { agregarElementoReciente, guardarHistorialLocal, leerHistorialLocal } from '../../servicios/historial_local'
 
 const youtubeApiKey = import.meta.env.VITE_YOUTUBE_API_KEY
 const youtubeIframeApiUrl = 'https://www.youtube.com/iframe_api'
@@ -161,22 +162,20 @@ function formatVideoDuration(isoDuration) {
   return `${minutes}:${String(seconds).padStart(2, '0')}`
 }
 
-function readRecentVideos() {
-  try {
-    const savedVideos = JSON.parse(localStorage.getItem('autodash-recent-videos'))
-    return Array.isArray(savedVideos) ? savedVideos : []
-  } catch {
-    return []
-  }
+function formatActivityDate(timestamp) {
+  const date = new Date(timestamp)
+  return Number.isNaN(date.getTime())
+    ? 'Fecha no disponible'
+    : new Intl.DateTimeFormat('es', { dateStyle: 'short', timeStyle: 'short' }).format(date)
 }
 
-export function SeccionVideos({ isVideoPlayerLocked = false }) {
+export function SeccionVideos({ userId, isVideoPlayerLocked = false }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [videoCategory, setVideoCategory] = useState('')
   const [searchRevision, setSearchRevision] = useState(0)
   const [searchResults, setSearchResults] = useState([])
   const [searchResultsExpanded, setSearchResultsExpanded] = useState(true)
-  const [recentVideos, setRecentVideos] = useState(readRecentVideos)
+  const [recentVideos, setRecentVideos] = useState(() => leerHistorialLocal('videos', userId))
   const [searchStatus, setSearchStatus] = useState('idle')
   const [searchError, setSearchError] = useState('')
   const [durationWarning, setDurationWarning] = useState('')
@@ -192,8 +191,8 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
   const securityLockRef = useRef(isVideoPlayerLocked)
 
   useEffect(() => {
-    localStorage.setItem('autodash-recent-videos', JSON.stringify(recentVideos))
-  }, [recentVideos])
+    guardarHistorialLocal('videos', userId, recentVideos)
+  }, [recentVideos, userId])
 
   useEffect(() => {
     securityLockRef.current = isVideoPlayerLocked
@@ -385,10 +384,10 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
     if (isVideoPlayerLocked) return
     setSelectedYouTubeVideo(result)
     setSearchResultsExpanded(false)
-    setRecentVideos((currentVideos) => [
-      result,
-      ...currentVideos.filter((video) => video.id !== result.id),
-    ].slice(0, 6))
+    setRecentVideos((currentVideos) => agregarElementoReciente(currentVideos, {
+      ...result,
+      watchedAt: new Date().toISOString(),
+    }, 20))
     setYouTubePlayerError('')
     setYouTubePlayerReady(false)
     setYouTubePlaybackState('loading')
@@ -531,7 +530,7 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
 
           {recentVideos.length > 0 && (
             <div className="youtube-recent">
-              <div className="youtube-results-heading"><strong>Videos recientes</strong><small>Reproducidos en este dispositivo</small></div>
+              <div className="youtube-results-heading"><strong>Videos recientes</strong><small>Guardados solo en este dispositivo</small></div>
               {recentVideos.map((video) => (
                 <button
                   className={`youtube-result${selectedYouTubeVideo?.id === video.id ? ' selected' : ''}`}
@@ -548,7 +547,7 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
                   )}
                   <span className="youtube-result-copy">
                     <strong>{video.title}</strong>
-                    <small>{video.channel}</small>
+                    <small>{video.channel} · {formatActivityDate(video.watchedAt)}</small>
                   </span>
                 </button>
               ))}

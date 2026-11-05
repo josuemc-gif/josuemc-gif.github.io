@@ -112,7 +112,7 @@ function PanelAutoDash({ auth }) {
     cambiarVelocidadSimulada,
     iniciarGps: startGps,
     alternarTrayecto: toggleTrip,
-  } = useSeguimientoTrayecto({ anunciar: speak, alCambiarPosicion: busqueda.actualizarPosicion, consumoSimulado: telemetry.consumption })
+  } = useSeguimientoTrayecto({ usuarioId: auth.user.id, anunciar: speak, alCambiarPosicion: busqueda.actualizarPosicion, consumoSimulado: telemetry.consumption })
   const toggleTripWithFeedback = useCallback(() => {
     toggleTrip(busqueda.destino?.name)
     if (tripStarted && notificaciones && 'Notification' in window && Notification.permission === 'granted') {
@@ -255,7 +255,7 @@ function PanelAutoDash({ auth }) {
 
           {view === 'history' && <SeccionTrayectos trips={trips} deleteTrip={deleteTrip} tripStarted={tripStarted} toggleTrip={toggleTripWithFeedback} startGps={startGps} setView={setView} units={unidades} />}
           {view === 'maintenance' && <SeccionMantenimiento tasks={tasks} addTask={addTask} />}
-          {view === 'media' && <SeccionMultimedia isVideoPlayerLocked={videoBlocked || mediaSection !== 'video'} mediaTab={mediaSection} setMediaTab={setMediaSection} />}
+          {view === 'media' && <SeccionMultimedia userId={auth.user.id} isVideoPlayerLocked={videoBlocked || mediaSection !== 'video'} mediaTab={mediaSection} setMediaTab={setMediaSection} />}
           {view === 'settings' && (
             <SeccionConfiguracion
               device={device}
