@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { LockKeyhole, Search, Video } from 'lucide-react'
+import { ChevronDown, ChevronRight, LockKeyhole, Search, Video } from 'lucide-react'
 import { getYouTubeEmbedUrl, getYouTubeVideoId } from '../../utilidades/youtube'
 
 const youtubeApiKey = import.meta.env.VITE_YOUTUBE_API_KEY
@@ -22,9 +22,15 @@ const videoPlayerStyles = `
   .youtube-status { color: var(--ink-faint); }
   .youtube-error { background: #fff0ef; color: #8d3932; }
   .youtube-results { display: grid; gap: 8px; margin-top: 12px; }
-  .youtube-results-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 15px; }
+  .youtube-results[hidden] { display: none; }
+  .youtube-results-accordion { margin-top: 15px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface, white); }
+  .youtube-results-heading { display: flex; width: 100%; min-height: 42px; align-items: center; justify-content: space-between; gap: 8px; border: 0; background: transparent; padding: 9px 11px; color: var(--ink); text-align: left; cursor: pointer; }
+  .youtube-results-heading:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  .youtube-results-heading-copy { display: grid; min-width: 0; gap: 3px; }
   .youtube-results-heading strong { color: var(--ink); font-size: 12px; }
   .youtube-results-heading small { color: var(--ink-faint); font-size: 10px; }
+  .youtube-results-heading > small { flex: 0 0 auto; }
+  .youtube-results-heading-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .youtube-result { display: flex; width: 100%; min-width: 0; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 5px; background: transparent; padding: 8px; text-align: left; cursor: pointer; }
   .youtube-result:hover:not(:disabled), .youtube-result.selected { border-color: var(--teal); background: var(--surface, white); }
   .youtube-thumbnail-wrap { position: relative; width: 120px; aspect-ratio: 16 / 9; flex: 0 0 auto; overflow: hidden; border-radius: 3px; background: #e9efec; }
@@ -33,10 +39,12 @@ const videoPlayerStyles = `
   .youtube-result-copy { display: grid; min-width: 0; gap: 5px; }
   .youtube-result-copy strong { overflow: hidden; color: var(--ink); font-size: 12px; line-height: 1.4; text-overflow: ellipsis; }
   .youtube-result-copy small { overflow: hidden; color: var(--ink-faint); font-size: 10px; text-overflow: ellipsis; }
+  .youtube-results-accordion .youtube-results { margin: 0; border-top: 1px solid var(--line); padding: 10px; }
   .youtube-recent { display: grid; gap: 7px; margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
   .youtube-recent .youtube-result { padding: 6px; }
   .youtube-recent .youtube-thumbnail-wrap { width: 90px; }
   .youtube-player-frame { position: relative; display: grid; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; place-items: center; border-radius: 5px; background: #111817; }
+  .youtube-player-panel { scroll-margin-top: 24px; }
   .youtube-player-frame > div { width: 100%; height: 100%; }
   .youtube-player-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
   .youtube-player-empty { display: grid; justify-items: center; gap: 10px; padding: 20px; color: #d3ddda; text-align: center; }
@@ -167,6 +175,7 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
   const [videoCategory, setVideoCategory] = useState('')
   const [searchRevision, setSearchRevision] = useState(0)
   const [searchResults, setSearchResults] = useState([])
+  const [searchResultsExpanded, setSearchResultsExpanded] = useState(true)
   const [recentVideos, setRecentVideos] = useState(readRecentVideos)
   const [searchStatus, setSearchStatus] = useState('idle')
   const [searchError, setSearchError] = useState('')
@@ -178,6 +187,7 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
   const [useYouTubeEmbedFallback, setUseYouTubeEmbedFallback] = useState(false)
   const [playerRetryCount, setPlayerRetryCount] = useState(0)
   const youtubePlayerHostRef = useRef(null)
+  const youtubePlayerPanelRef = useRef(null)
   const youtubePlayerRef = useRef(null)
   const securityLockRef = useRef(isVideoPlayerLocked)
 
@@ -261,6 +271,7 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
         }
 
         setSearchResults(results)
+        setSearchResultsExpanded(true)
         setSearchStatus(results.length ? 'success' : 'empty')
       } catch (error) {
         if (error.name === 'AbortError') return
@@ -373,6 +384,7 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
   const handleYouTubeSelection = (result) => {
     if (isVideoPlayerLocked) return
     setSelectedYouTubeVideo(result)
+    setSearchResultsExpanded(false)
     setRecentVideos((currentVideos) => [
       result,
       ...currentVideos.filter((video) => video.id !== result.id),
@@ -382,6 +394,9 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
     setYouTubePlaybackState('loading')
     setUseYouTubeEmbedFallback(false)
     setPlayerRetryCount(0)
+    window.requestAnimationFrame(() => {
+      youtubePlayerPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }
 
   const handlePlayerRetry = () => {
@@ -399,6 +414,7 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
   }
 
   const missingApiKey = Boolean(searchQuery.trim()) && !youtubeApiKey && !isVideoPlayerLocked
+  const selectedSearchResult = searchResults.some((result) => result.id === selectedYouTubeVideo?.id)
   const visibleSearchError = missingApiKey
     ? 'Configura VITE_YOUTUBE_API_KEY en el entorno de Vite para habilitar la búsqueda.'
     : searchError
@@ -473,31 +489,44 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
           {durationWarning && <p className="youtube-status" role="status">{durationWarning}</p>}
 
           {searchResults.length > 0 && (
-            <>
-              <div className="youtube-results-heading"><strong>Biblioteca de videos</strong><small>{searchResults.length} resultados</small></div>
-              <div className="youtube-results" aria-label="Resultados de búsqueda">
+            <section className="youtube-results-accordion">
+              <button
+                className="youtube-results-heading"
+                type="button"
+                aria-expanded={searchResultsExpanded}
+                aria-controls="youtube-search-results"
+                onClick={() => setSearchResultsExpanded((expanded) => !expanded)}
+              >
+                {searchResultsExpanded ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
+                <span className="youtube-results-heading-copy">
+                  <strong>{selectedSearchResult ? 'Lista guardada' : 'Resultados de búsqueda'}</strong>
+                  <small>{selectedSearchResult ? selectedYouTubeVideo.title : searchQuery.trim()}</small>
+                </span>
+                <small>{searchResults.length} videos</small>
+              </button>
+              <div id="youtube-search-results" className="youtube-results" aria-label="Resultados de búsqueda" hidden={!searchResultsExpanded}>
                 {searchResults.map((result) => (
-                <button
-                  className={`youtube-result${selectedYouTubeVideo?.id === result.id ? ' selected' : ''}`}
-                  key={result.id}
-                  type="button"
-                  disabled={isVideoPlayerLocked}
-                  onClick={() => handleYouTubeSelection(result)}
-                >
-                  {result.thumbnail && (
-                    <span className="youtube-thumbnail-wrap">
-                      <img className="youtube-thumbnail" src={result.thumbnail} alt="" loading="lazy" />
-                      <span className="youtube-duration">{result.duration || '--:--'}</span>
+                  <button
+                    className={`youtube-result${selectedYouTubeVideo?.id === result.id ? ' selected' : ''}`}
+                    key={result.id}
+                    type="button"
+                    disabled={isVideoPlayerLocked}
+                    onClick={() => handleYouTubeSelection(result)}
+                  >
+                    {result.thumbnail && (
+                      <span className="youtube-thumbnail-wrap">
+                        <img className="youtube-thumbnail" src={result.thumbnail} alt="" loading="lazy" />
+                        <span className="youtube-duration">{result.duration || '--:--'}</span>
+                      </span>
+                    )}
+                    <span className="youtube-result-copy">
+                      <strong>{result.title}</strong>
+                      <small>{result.channel}</small>
                     </span>
-                  )}
-                  <span className="youtube-result-copy">
-                    <strong>{result.title}</strong>
-                    <small>{result.channel}</small>
-                  </span>
-                </button>
+                  </button>
                 ))}
               </div>
-            </>
+            </section>
           )}
 
           {recentVideos.length > 0 && (
@@ -527,7 +556,7 @@ export function SeccionVideos({ isVideoPlayerLocked = false }) {
           )}
         </article>
 
-        <article className="panel media-panel">
+        <article className="panel media-panel youtube-player-panel" ref={youtubePlayerPanelRef} tabIndex={-1}>
           <div className="media-panel-heading">
             <span className="section-kicker">REPRODUCTOR INTEGRADO</span>
             <h2>{selectedYouTubeVideo ? 'YouTube' : 'Video seleccionado'}</h2>
